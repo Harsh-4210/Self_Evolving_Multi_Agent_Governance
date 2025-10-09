@@ -1,31 +1,36 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import type { Proposal } from '../types/governance';
-import { ThumbsUp, ThumbsDown, MinusCircle, Clock } from 'lucide-react';
+import { ThumbsUp, ThumbsDown, MinusCircle } from 'lucide-react';
 
 export default function VotingInterface() {
-  // State for data, loading, and errors
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
-  // State for UI interaction
   const [selectedProposal, setSelectedProposal] = useState<string | null>(null);
-  const [isVoting, setIsVoting] = useState<string | null>(null); // To disable buttons on a proposal while voting
+  const [isVoting, setIsVoting] = useState<string | null>(null);
 
   const fetchProposals = async () => {
     try {
       setLoading(true);
-      // Fetch only 'active' proposals from the database
       const { data, error } = await supabase
         .from('governance_log')
         .select('*')
         .order('id', { ascending: true });
 
-      if (error) console.error("Error fetching governance log:", error);
-
       if (error) throw error;
-      setProposals(data || []);
+
+      // Convert string numbers to actual numbers
+      const normalized = (data || []).map(p => ({
+        ...p,
+        votes_for: Number(p.votes_for || 0),
+        votes_against: Number(p.votes_against || 0),
+        votes_abstain: Number(p.votes_abstain || 0),
+        total_voting_power: Number(p.total_voting_power || 1), // avoid division by zero
+        ends_at: p.ends_at ? new Date(p.ends_at) : new Date(), // convert string -> Date
+      }));
+
+      setProposals(normalized);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -33,17 +38,14 @@ export default function VotingInterface() {
     }
   };
 
-  // useEffect runs once to fetch the initial data
   useEffect(() => {
     fetchProposals();
   }, []);
 
-  // MODIFIED: This function now updates the database
   const handleVote = async (proposalId: string, voteType: 'for' | 'against' | 'abstain') => {
     setIsVoting(proposalId);
     try {
-      const voteColumn = `votes_${voteType}`; // e.g., 'votes_for'
-      // Call the RPC function you created in Supabase
+      const voteColumn = `votes_${voteType}`;
       const { error } = await supabase.rpc('increment_vote', {
         proposal_id_to_update: proposalId,
         vote_column: voteColumn,
@@ -51,46 +53,19 @@ export default function VotingInterface() {
 
       if (error) throw error;
 
-      // If vote is successful, refresh the proposals data to show the new count
       fetchProposals();
-      alert(`Vote '${voteType}' cast successfully!`);
-
-    } catch (error: any) {
-      alert(`Error casting vote: ${error.message}`);
+    } catch (err: any) {
+      alert(`Error casting vote: ${err.message}`);
     } finally {
       setIsVoting(null);
     }
   };
 
-  // --- All of your original UI helper functions remain the same ---
-
-  const getCategoryColor = (category: string) => {
-    const colors = {
-      monetary: 'bg-blue-100 text-blue-700 border-blue-200',
-      governance: 'bg-violet-100 text-violet-700 border-violet-200',
-      technical: 'bg-cyan-100 text-cyan-700 border-cyan-200',
-      social: 'bg-rose-100 text-rose-700 border-rose-200',
-    };
-    return colors[category as keyof typeof colors] || colors.governance;
-  };
-
-  const getStatusColor = (status: string) => {
-    const colors = {
-      active: 'bg-emerald-100 text-emerald-700',
-      passed: 'bg-green-100 text-green-700',
-      rejected: 'bg-red-100 text-red-700',
-      pending: 'bg-amber-100 text-amber-700',
-    };
-    return colors[status as keyof typeof colors] || colors.pending;
-  };
-
-  const getTimeRemaining = (endsAtString: string | Date) => {
-    const endsAt = new Date(endsAtString);
+  const getTimeRemaining = (endsAt: Date) => {
     const now = new Date();
     const diff = endsAt.getTime() - now.getTime();
-
     if (diff < 0) return "Voting ended";
-    
+
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const days = Math.floor(hours / 24);
 
@@ -98,9 +73,7 @@ export default function VotingInterface() {
     if (hours > 0) return `${hours}h remaining`;
     return 'Ending soon';
   };
-  
-  // --- Conditional Rendering and Final UI ---
-  
+
   if (loading) return <div className="p-6 text-center">Loading active proposals...</div>;
   if (error) return <div className="p-6 text-center text-red-600">Error: {error}</div>;
 
@@ -115,7 +88,6 @@ export default function VotingInterface() {
 
       <div className="space-y-4">
         {proposals.map((proposal, index) => {
-          // MODIFIED: Use snake_case for all properties from the database
           const totalVotes = proposal.votes_for + proposal.votes_against + proposal.votes_abstain;
           const forPercentage = (proposal.votes_for / proposal.total_voting_power) * 100;
           const againstPercentage = (proposal.votes_against / proposal.total_voting_power) * 100;
@@ -132,13 +104,15 @@ export default function VotingInterface() {
                 className="p-4 cursor-pointer"
                 onClick={() => setSelectedProposal(isExpanded ? null : proposal.id)}
               >
-                {/* ... The rest of your JSX remains the same, but ensure you use snake_case for properties ... */}
-                {/* Example of snake_case update: */}
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 rounded bg-emerald-500"></div>
-                  <span className="text-slate-600">For: <span className="font-semibold text-slate-900">{proposal.votes_for.toLocaleString()}</span></span>
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-slate-900">{proposal.title}</h3>
+                  <span className="text-xs text-slate-500">{getTimeRemaining(proposal.ends_at)}</span>
                 </div>
-                {/* ... etc ... */}
+                <div className="flex items-center gap-2 mt-2 text-sm text-slate-700">
+                  <div>For: {proposal.votes_for.toLocaleString()}</div>
+                  <div>Against: {proposal.votes_against.toLocaleString()}</div>
+                  <div>Abstain: {proposal.votes_abstain.toLocaleString()}</div>
+                </div>
               </div>
 
               {isExpanded && (
@@ -147,21 +121,21 @@ export default function VotingInterface() {
                   <div className="flex gap-3">
                     <button
                       disabled={isVoting === proposal.id}
-                      onClick={(e) => { e.stopPropagation(); handleVote(proposal.id, 'for'); }}
+                      onClick={e => { e.stopPropagation(); handleVote(proposal.id, 'for'); }}
                       className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-medium transition-colors duration-200 disabled:opacity-50"
                     >
                       <ThumbsUp className="w-4 h-4" /> {isVoting === proposal.id ? 'Voting...' : 'Vote For'}
                     </button>
                     <button
                       disabled={isVoting === proposal.id}
-                      onClick={(e) => { e.stopPropagation(); handleVote(proposal.id, 'against'); }}
+                      onClick={e => { e.stopPropagation(); handleVote(proposal.id, 'against'); }}
                       className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium transition-colors duration-200 disabled:opacity-50"
                     >
                       <ThumbsDown className="w-4 h-4" /> {isVoting === proposal.id ? 'Voting...' : 'Vote Against'}
                     </button>
                     <button
                       disabled={isVoting === proposal.id}
-                      onClick={(e) => { e.stopPropagation(); handleVote(proposal.id, 'abstain'); }}
+                      onClick={e => { e.stopPropagation(); handleVote(proposal.id, 'abstain'); }}
                       className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-slate-500 hover:bg-slate-600 text-white rounded-lg font-medium transition-colors duration-200 disabled:opacity-50"
                     >
                       <MinusCircle className="w-4 h-4" /> {isVoting === proposal.id ? 'Voting...' : 'Abstain'}

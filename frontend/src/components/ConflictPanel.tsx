@@ -8,7 +8,7 @@ interface Transaction {
   title: string;
   status: 'open' | 'negotiating' | 'resolved' | 'escalated' | string;
   severity: 'low' | 'medium' | 'high' | 'critical' | string;
-  parties: string[]; // Assuming this is stored as an array
+  parties: string[];
   logs: {
     actor: string;
     action: string;
@@ -19,6 +19,29 @@ interface Transaction {
   created_at: string;
   resolved_at?: string;
 }
+
+const placeholderData: Transaction[] = [
+  {
+    id: 'placeholder-1',
+    title: 'Sample Conflict A',
+    status: 'open',
+    severity: 'medium',
+    parties: ['Alice', 'Bob'],
+    logs: [
+      { actor: 'Alice', action: 'Proposed solution', details: 'Suggested compromise', timestamp: new Date().toISOString() },
+    ],
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 'placeholder-2',
+    title: 'Sample Conflict B',
+    status: 'negotiating',
+    severity: 'high',
+    parties: ['Charlie', 'Dave'],
+    logs: [],
+    created_at: new Date().toISOString(),
+  },
+];
 
 export default function ConflictPanel() {
   const [conflicts, setConflicts] = useState<Transaction[]>([]);
@@ -37,16 +60,18 @@ export default function ConflictPanel() {
 
         if (error) throw error;
 
-        // Normalize parties and logs to avoid undefined
         const normalized = (data || []).map((item) => ({
           ...item,
           parties: item.parties || [],
           logs: item.logs || [],
+          status: item.status || 'open',
+          severity: item.severity || 'low',
         })) as Transaction[];
 
-        setConflicts(normalized);
+        setConflicts(normalized.length > 0 ? normalized : placeholderData);
       } catch (err: any) {
         setError(err.message || 'Unknown error');
+        setConflicts(placeholderData);
       } finally {
         setLoading(false);
       }
@@ -55,7 +80,6 @@ export default function ConflictPanel() {
     fetchConflicts();
   }, []);
 
-  // --- UI Helpers ---
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'open': return <AlertCircle className="w-5 h-5 text-amber-600" />;
@@ -100,11 +124,9 @@ export default function ConflictPanel() {
     return 'Just now';
   };
 
-  // --- Conditional Rendering ---
   if (loading) return <div className="p-6 text-center">Loading conflicts...</div>;
   if (error) return <div className="p-6 text-center text-red-600">Error: {error}</div>;
 
-  // --- Main Render ---
   return (
     <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
       <div className="flex items-center justify-between mb-6">
@@ -134,16 +156,19 @@ export default function ConflictPanel() {
                     <div className="mt-0.5">{getStatusIcon(conflict.status)}</div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        <h3 className="font-semibold text-slate-900">{conflict.title}</h3>
+                        <h3 className="font-semibold text-slate-900">{conflict.title || 'Untitled Conflict'}</h3>
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getSeverityColor(conflict.severity)}`}>
-                          {conflict.severity}
+                          {conflict.severity || 'low'}
                         </span>
                       </div>
                       <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
                         <span>Parties:</span>
-                        {conflict.parties.map((party, i) => (
-                          <span key={i} className="px-2 py-1 bg-white rounded border border-slate-200 text-xs font-medium">{party}</span>
-                        ))}
+                        {conflict.parties.length > 0
+                          ? conflict.parties.map((party, i) => (
+                              <span key={i} className="px-2 py-1 bg-white rounded border border-slate-200 text-xs font-medium">{party}</span>
+                            ))
+                          : <span className="px-2 py-1 bg-white rounded border border-slate-200 text-xs font-medium text-slate-400">No parties</span>
+                        }
                       </div>
                     </div>
                   </div>
@@ -165,27 +190,30 @@ export default function ConflictPanel() {
                 )}
               </div>
 
-              {isExpanded && conflict.logs.length > 0 && (
+              {isExpanded && (
                 <div className="border-t border-slate-200 bg-white p-4 animate-in fade-in slide-in-from-top-2 duration-300">
                   <h4 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
                     <MessageSquare className="w-4 h-4" /> Negotiation Log
                   </h4>
                   <div className="space-y-3">
-                    {conflict.logs.map((log, logIndex) => (
-                      <div key={logIndex} className="flex gap-3 p-3 bg-slate-50 rounded-lg animate-in fade-in slide-in-from-left-2" style={{ animationDelay: `${logIndex * 50}ms` }}>
-                        <div className="w-1 bg-blue-500 rounded-full flex-shrink-0"></div>
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="font-medium text-slate-900 text-sm">{log.actor}</span>
-                            <span className="text-xs text-slate-500">{formatTimestamp(log.timestamp)}</span>
+                    {conflict.logs.length > 0
+                      ? conflict.logs.map((log, logIndex) => (
+                          <div key={logIndex} className="flex gap-3 p-3 bg-slate-50 rounded-lg animate-in fade-in slide-in-from-left-2" style={{ animationDelay: `${logIndex * 50}ms` }}>
+                            <div className="w-1 bg-blue-500 rounded-full flex-shrink-0"></div>
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="font-medium text-slate-900 text-sm">{log.actor}</span>
+                                <span className="text-xs text-slate-500">{formatTimestamp(log.timestamp)}</span>
+                              </div>
+                              <p className="text-sm text-slate-600 mb-1">
+                                <span className="font-medium text-slate-700">{log.action}</span>
+                              </p>
+                              <p className="text-xs text-slate-500">{log.details}</p>
+                            </div>
                           </div>
-                          <p className="text-sm text-slate-600 mb-1">
-                            <span className="font-medium text-slate-700">{log.action}</span>
-                          </p>
-                          <p className="text-xs text-slate-500">{log.details}</p>
-                        </div>
-                      </div>
-                    ))}
+                        ))
+                      : <p className="text-sm text-slate-500 italic">No logs available for this conflict.</p>
+                    }
                   </div>
                   {conflict.status !== 'resolved' && (
                     <div className="mt-4 pt-4 border-t border-slate-200">

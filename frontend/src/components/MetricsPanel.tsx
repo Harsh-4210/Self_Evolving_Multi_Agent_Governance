@@ -3,7 +3,7 @@ import { supabase } from '../supabaseClient';
 import { TrendingUp, TrendingDown, Activity, Users, Vote, Award } from 'lucide-react';
 import type { GovernanceMetrics } from '../types/governance';
 
-// Helper component for individual metric cards (your design)
+// Helper component for individual metric cards
 const MetricCard = ({
   title,
   value,
@@ -16,7 +16,7 @@ const MetricCard = ({
   value: number | string;
   unit?: string;
   trend?: number;
-  icon: React.ElementType; // Use React.ElementType for component icons
+  icon: React.ElementType;
   color: string;
 }) => (
   <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-all duration-300 hover:scale-[1.02]">
@@ -45,31 +45,52 @@ const MetricCard = ({
   </div>
 );
 
-// Main component that fetches data and then renders the UI
 export default function MetricsPanel() {
-  // State to hold the metrics data, loading status, and any errors
   const [metrics, setMetrics] = useState<GovernanceMetrics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // useEffect runs once when the component is first mounted
   useEffect(() => {
     async function fetchMetrics() {
       try {
         setLoading(true);
-        // Fetch data from the 'governance_metrics' table in Supabase
         const { data, error } = await supabase
           .from('agent_states')
           .select('*')
-          .order('id', { ascending: false });
-
-        if (error) console.error("Error fetching agent states:", error);
-
+          .order('id', { ascending: false })
+          .limit(1);
 
         if (error) throw error;
-        
+
+        // Use first row or fallback to placeholder
+        if (data && data.length > 0) {
+          setMetrics(data[0] as GovernanceMetrics);
+        } else {
+          // Placeholder sample values if no data
+          setMetrics({
+            total_token_supply: 1000000,
+            transaction_volume: 50000,
+            inflation_rate: 2.5,
+            active_proposals: 8,
+            total_agents: 120,
+            active_agents: 95,
+            average_reputation: 4.2,
+            governance_participation: 67.5,
+          });
+        }
       } catch (err: any) {
-        setError(err.message);
+        setError(err.message || 'Unknown error');
+        // Fallback placeholder even if error
+        setMetrics({
+          total_token_supply: 0,
+          transaction_volume: 0,
+          inflation_rate: 0,
+          active_proposals: 0,
+          total_agents: 0,
+          active_agents: 0,
+          average_reputation: 0,
+          governance_participation: 0,
+        });
       } finally {
         setLoading(false);
       }
@@ -78,25 +99,16 @@ export default function MetricsPanel() {
     fetchMetrics();
   }, []);
 
-  // Helper function to format large numbers
-  const formatNumber = (num: number) => {
+  const formatNumber = (num?: number) => {
+    if (num === undefined || num === null) return '0';
     if (num >= 1000000) return `${(num / 1000000).toFixed(2)}M`;
     if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
     return num.toFixed(0);
   };
 
-  // Conditional Rendering: Show loading or error states first
-  if (loading) {
-    return <div className="text-center p-8">Loading Governance Metrics...</div>;
-  }
-  if (error) {
-    return <div className="text-center p-8 text-red-600">Error: {error}</div>;
-  }
-  
-  // If data is successfully loaded, render your beautiful UI
-  if (!metrics) {
-      return <div className="text-center p-8">No metrics data found.</div>
-  }
+  if (loading) return <div className="text-center p-8">Loading Governance Metrics...</div>;
+  if (error) return <div className="text-center p-8 text-red-600">Error: {error}</div>;
+  if (!metrics) return <div className="text-center p-8">No metrics data found.</div>;
 
   return (
     <div className="space-y-4">
@@ -126,7 +138,7 @@ export default function MetricsPanel() {
         />
         <MetricCard
           title="Inflation Rate"
-          value={metrics.inflation_rate}
+          value={metrics.inflation_rate !== undefined ? metrics.inflation_rate.toFixed(2) : '0.00'}
           unit="%"
           icon={Activity}
           color="bg-orange-500"
@@ -134,7 +146,7 @@ export default function MetricsPanel() {
         />
         <MetricCard
           title="Active Proposals"
-          value={metrics.active_proposals}
+          value={metrics.active_proposals !== undefined ? metrics.active_proposals : 0}
           icon={Vote}
           color="bg-violet-500"
         />
@@ -143,27 +155,27 @@ export default function MetricsPanel() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
           title="Total Agents"
-          value={metrics.total_agents}
+          value={metrics.total_agents !== undefined ? metrics.total_agents : 0}
           icon={Users}
           color="bg-cyan-500"
         />
         <MetricCard
           title="Active Agents"
-          value={metrics.active_agents}
+          value={metrics.active_agents !== undefined ? metrics.active_agents : 0}
           icon={Users}
           color="bg-teal-500"
           trend={5.2}
         />
         <MetricCard
           title="Avg Reputation"
-          value={metrics.average_reputation.toFixed(1)}
+          value={metrics.average_reputation !== undefined ? metrics.average_reputation.toFixed(1) : '0.0'}
           icon={Award}
           color="bg-amber-500"
           trend={3.1}
         />
         <MetricCard
           title="Participation Rate"
-          value={metrics.governance_participation.toFixed(1)}
+          value={metrics.governance_participation !== undefined ? metrics.governance_participation.toFixed(1) : '0.0'}
           unit="%"
           icon={Vote}
           color="bg-rose-500"

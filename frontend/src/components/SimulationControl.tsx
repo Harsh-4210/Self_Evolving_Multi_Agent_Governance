@@ -3,72 +3,54 @@ import { supabase } from '../supabaseClient';
 import { Play, Pause, RotateCcw, Settings, Zap } from 'lucide-react';
 import type { SimulationParams } from '../types/governance';
 
-// The onParamsChange prop is likely no longer needed if this component manages the simulation start
 export default function SimulationControl() {
   const [isRunning, setIsRunning] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false); // To disable button while saving
-  const [params, setParams] = useState<SimulationParams>({
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const defaultParams: SimulationParams = {
     speed: 1,
     agent_count: 10,
     transaction_rate: 100,
     proposal_frequency: 5,
     conflict_probability: 15,
-  });
-
-  const handleParamChange = (key: keyof SimulationParams, value: number) => {
-    setParams(prevParams => ({ ...prevParams, [key]: value }));
   };
 
-  // MODIFIED: This function now saves the simulation run to the database
+  const [params, setParams] = useState<SimulationParams>({ ...defaultParams });
+
+  const handleParamChange = (key: keyof SimulationParams, value: number) => {
+    setParams(prev => ({ ...prev, [key]: value }));
+  };
+
   const handlePlayPause = async () => {
     if (isRunning) {
-      // Logic to pause a running simulation would be more complex (e.g., updating the run's status)
-      // For now, we'll just toggle the UI state.
       setIsRunning(false);
-    } else {
-      setIsSubmitting(true);
-      try {
-        // Insert a new row into the 'simulation_runs' table with the current parameters
-        const { data, error } = await supabase
-          .from('simulation_runs')
-          .insert([{
-            speed: params.speed,
-            agent_count: params.agent_count,
-            transaction_rate: params.transaction_rate,
-            proposal_frequency: params.proposal_frequency,
-            conflict_probability: params.conflict_probability,
-          }]);
+      return;
+    }
 
-if (error) console.error("Insert error:", error);
+    setIsSubmitting(true);
+    try {
+      const { data, error } = await supabase
+        .from('simulation_runs')
+        .insert([params]);
 
+      if (error) throw error;
 
-        if (error) throw error;
-        
-        // If successful, update the UI to show it's "running"
-        setIsRunning(true);
-        alert('New simulation run started successfully!');
-
-      } catch (error: any) {
-        alert(`Error starting simulation: ${error.message}`);
-      } finally {
-        setIsSubmitting(false);
-      }
+      setIsRunning(true);
+      alert('Simulation started successfully!');
+    } catch (err: any) {
+      alert(`Error starting simulation: ${err.message || 'Unknown error'}`);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleReset = () => {
     setIsRunning(false);
-    setParams({
-      speed: 1,
-      agent_count: 10,
-      transaction_rate: 100,
-      proposal_frequency: 5,
-      conflict_probability: 15,
-    });
+    setParams({ ...defaultParams });
   };
 
-  const scenarios = [
+  const scenarios: { name: string; icon: string; description: string }[] = [
     { name: 'High Activity', icon: '⚡', description: 'Maximum transaction volume' },
     { name: 'Governance Crisis', icon: '🔥', description: 'Multiple conflicts, low participation' },
     { name: 'Stable Growth', icon: '📈', description: 'Balanced parameters' },
@@ -100,18 +82,17 @@ if (error) console.error("Insert error:", error);
       <div className="flex items-center gap-3 mb-6">
         <button
           onClick={handlePlayPause}
-          disabled={isSubmitting} // Disable button while the request is in flight
+          disabled={isSubmitting}
           className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-medium transition-all duration-200 disabled:opacity-50 ${
-            isRunning
-              ? 'bg-amber-500 hover:bg-amber-600 text-white'
-              : 'bg-emerald-500 hover:bg-emerald-600 text-white'
+            isRunning ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-emerald-500 hover:bg-emerald-600 text-white'
           }`}
         >
-          {isSubmitting ? 'Starting...' : isRunning ? (
-            <><Pause className="w-5 h-5" /> Pause Simulation</>
-          ) : (
-            <><Play className="w-5 h-5" /> Start Simulation</>
-          )}
+          {isSubmitting
+            ? 'Starting...'
+            : isRunning
+            ? (<><Pause className="w-5 h-5" /> Pause Simulation</>)
+            : (<><Play className="w-5 h-5" /> Start Simulation</>)
+          }
         </button>
         <button
           onClick={handleReset}
@@ -126,19 +107,22 @@ if (error) console.error("Insert error:", error);
         <div className="mb-6 p-4 bg-slate-50 rounded-lg border border-slate-200 animate-in fade-in slide-in-from-top-2 duration-300">
           <h3 className="font-semibold text-slate-900 mb-4">Simulation Parameters</h3>
           <div className="space-y-4">
-             {/* All your slider inputs remain the same. This is just a snippet. */}
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="text-sm font-medium text-slate-700">Simulation Speed</label>
                 <span className="text-sm font-semibold text-slate-900">{params.speed}x</span>
               </div>
               <input
-                type="range" min="0.5" max="5" step="0.5" value={params.speed}
-                onChange={(e) => handleParamChange('speed', parseFloat(e.target.value))}
+                type="range"
+                min="0.5"
+                max="5"
+                step="0.5"
+                value={params.speed}
+                onChange={e => handleParamChange('speed', parseFloat(e.target.value))}
                 className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
               />
             </div>
-             {/* ...other sliders go here... */}
+            {/* Repeat sliders for other params like agent_count, transaction_rate etc */}
           </div>
         </div>
       )}
