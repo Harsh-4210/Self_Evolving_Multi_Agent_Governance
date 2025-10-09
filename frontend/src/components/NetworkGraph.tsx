@@ -3,40 +3,47 @@ import { supabase } from '../supabaseClient';
 import type { Agent } from '../types/governance';
 import { X } from 'lucide-react';
 
-// This component no longer needs to receive props
 export default function NetworkGraph() {
-  // State for the component's data
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // State for the component's UI
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
   const [positions, setPositions] = useState<Map<string, { x: number; y: number }>>(new Map());
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
 
-  // useEffect to fetch data when the component mounts
+  // Fetch agents
   useEffect(() => {
     async function fetchAgents() {
       try {
         setLoading(true);
-        // Call the new RPC function you created in Supabase
-        const { data, error } = await supabase.rpc('get_latest_agent_states');
+        const { data, error } = await supabase.from('transactions').select('*');
 
         if (error) throw error;
-        
-        setAgents(data || []);
+
+        // Normalize data
+        const normalized: Agent[] = (data || []).map((item: any) => ({
+          id: item.id || crypto.randomUUID(),
+          name: item.name || 'Unknown',
+          role: item.role || 'Member',
+          status: item.status || 'inactive',
+          reputation: Number(item.reputation) || 0,
+          voting_power: Number(item.voting_power) || 0,
+          connections: Array.isArray(item.connections) ? item.connections : [],
+        }));
+
+        setAgents(normalized);
       } catch (err: any) {
         setError(err.message);
       } finally {
         setLoading(false);
       }
     }
+
     fetchAgents();
   }, []);
 
-  // Your original useEffect to calculate agent positions (this is correct)
+  // Calculate positions
   useEffect(() => {
     if (agents.length === 0) return;
 
@@ -49,13 +56,16 @@ export default function NetworkGraph() {
       const angle = (index / agents.length) * 2 * Math.PI - Math.PI / 2;
       const x = centerX + radius * Math.cos(angle);
       const y = centerY + radius * Math.sin(angle);
-      newPositions.set(agent.id, { x, y });
+
+      if (Number.isFinite(x) && Number.isFinite(y)) {
+        newPositions.set(agent.id, { x, y });
+      }
     });
 
     setPositions(newPositions);
   }, [agents]);
 
-  // Your original useEffect to draw on the canvas (this is correct)
+  // Draw canvas
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || positions.size === 0) return;
@@ -88,10 +98,14 @@ export default function NetworkGraph() {
       const pos = positions.get(agent.id);
       if (!pos) return;
 
-      const reputationRatio = agent.reputation / 100;
+      const reputationRatio = Number(agent.reputation) || 0;
       const size = 8 + reputationRatio * 8;
-      const gradient = ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, size);
+      if (!Number.isFinite(size)) return;
 
+      const x = pos.x;
+      const y = pos.y;
+
+      const gradient = ctx.createRadialGradient(x, y, 0, x, y, size);
       if (agent.status === 'active') {
         gradient.addColorStop(0, '#10b981');
         gradient.addColorStop(1, '#059669');
@@ -104,27 +118,27 @@ export default function NetworkGraph() {
       }
 
       ctx.beginPath();
-      ctx.arc(pos.x, pos.y, size, 0, 2 * Math.PI);
+      ctx.arc(x, y, size, 0, 2 * Math.PI);
       ctx.fillStyle = gradient;
       ctx.fill();
 
       if (selectedAgent?.id === agent.id) {
         ctx.beginPath();
-        ctx.arc(pos.x, pos.y, size + 4, 0, 2 * Math.PI);
+        ctx.arc(x, y, size + 4, 0, 2 * Math.PI);
         ctx.strokeStyle = '#3b82f6';
         ctx.lineWidth = 3;
         ctx.stroke();
       }
 
       ctx.beginPath();
-      ctx.arc(pos.x, pos.y, size, 0, 2 * Math.PI);
+      ctx.arc(x, y, size, 0, 2 * Math.PI);
       ctx.strokeStyle = 'white';
       ctx.lineWidth = 2;
       ctx.stroke();
     });
   }, [agents, positions, selectedAgent]);
 
-  // Your original click handler (this is correct)
+  // Canvas click
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -134,27 +148,25 @@ export default function NetworkGraph() {
     const y = e.clientY - rect.top;
 
     let foundAgent: Agent | null = null;
-    
-    // Iterate backwards so we find the top-most agent if they overlap
+
     for (let i = agents.length - 1; i >= 0; i--) {
-        const agent = agents[i];
-        const pos = positions.get(agent.id);
-        if (!pos) continue;
+      const agent = agents[i];
+      const pos = positions.get(agent.id);
+      if (!pos) continue;
 
-        const reputationRatio = agent.reputation / 100;
-        const size = 8 + reputationRatio * 8;
-        const distance = Math.sqrt((x - pos.x) ** 2 + (y - pos.y) ** 2);
+      const reputationRatio = Number(agent.reputation) || 0;
+      const size = 8 + reputationRatio * 8;
+      const distance = Math.sqrt((x - pos.x) ** 2 + (y - pos.y) ** 2);
 
-        if (distance <= size) {
-            foundAgent = agent;
-            break; // Stop once we find one
-        }
+      if (distance <= size) {
+        foundAgent = agent;
+        break;
+      }
     }
 
     setSelectedAgent(foundAgent);
   };
-  
-  // Handle loading and error states
+
   if (loading) return <div className="p-6 text-center">Loading Agent Network...</div>;
   if (error) return <div className="p-6 text-center text-red-600">Error: {error}</div>;
 
@@ -162,14 +174,9 @@ export default function NetworkGraph() {
     <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-2xl font-bold text-slate-900">Agent Network</h2>
-        <div className="flex items-center gap-4 text-xs">
-          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-500"></div><span className="text-slate-600">Active</span></div>
-          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-slate-400"></div><span className="text-slate-600">Inactive</span></div>
-          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-500"></div><span className="text-slate-600">Suspended</span></div>
-        </div>
       </div>
 
-      <div className="relative" ref={containerRef}>
+      <div className="relative">
         <canvas
           ref={canvasRef}
           width={600}
@@ -182,15 +189,13 @@ export default function NetworkGraph() {
           <div className="absolute top-4 right-4 bg-white rounded-lg shadow-lg border border-slate-200 p-4 w-64 animate-in fade-in duration-200">
             <div className="flex items-start justify-between mb-3">
               <h3 className="font-bold text-slate-900 text-lg">{selectedAgent.name}</h3>
-              <button onClick={() => setSelectedAgent(null)} className="text-slate-400 hover:text-slate-600 transition-colors">
+              <button onClick={() => setSelectedAgent(null)} className="text-slate-400 hover:text-slate-600">
                 <X className="w-5 h-5" />
               </button>
             </div>
-
             <div className="space-y-2 text-sm">
               <div className="flex justify-between"><span className="text-slate-600">Role:</span><span className="font-medium text-slate-900">{selectedAgent.role}</span></div>
-              <div className="flex justify-between">
-                <span className="text-slate-600">Status:</span>
+              <div className="flex justify-between"><span className="text-slate-600">Status:</span>
                 <span className={`font-medium capitalize ${
                   selectedAgent.status === 'active' ? 'text-emerald-600' :
                   selectedAgent.status === 'inactive' ? 'text-slate-600' :
@@ -201,7 +206,6 @@ export default function NetworkGraph() {
               <div className="w-full bg-slate-200 rounded-full h-2 mt-1">
                 <div className="bg-emerald-500 h-2 rounded-full transition-all duration-300" style={{ width: `${selectedAgent.reputation}%` }}></div>
               </div>
-              {/* MODIFIED: Use snake_case for voting_power */}
               <div className="flex justify-between mt-3"><span className="text-slate-600">Voting Power:</span><span className="font-medium text-slate-900">{selectedAgent.voting_power.toLocaleString()}</span></div>
               <div className="flex justify-between"><span className="text-slate-600">Connections:</span><span className="font-medium text-slate-900">{selectedAgent.connections.length}</span></div>
             </div>

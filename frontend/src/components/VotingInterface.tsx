@@ -18,10 +18,11 @@ export default function VotingInterface() {
       setLoading(true);
       // Fetch only 'active' proposals from the database
       const { data, error } = await supabase
-        .from('proposals')
+        .from('governance_log')
         .select('*')
-        .eq('status', 'active')
-        .order('ends_at', { ascending: true }); // Show proposals ending soonest first
+        .order('id', { ascending: true });
+
+      if (error) console.error("Error fetching governance log:", error);
 
       if (error) throw error;
       setProposals(data || []);

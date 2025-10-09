@@ -59,13 +59,15 @@ export default function MetricsPanel() {
         setLoading(true);
         // Fetch data from the 'governance_metrics' table in Supabase
         const { data, error } = await supabase
-          .from('governance_metrics') // Make sure this table name is correct
+          .from('agent_states')
           .select('*')
-          .single(); // .single() fetches just one row
+          .order('id', { ascending: false });
+
+        if (error) console.error("Error fetching agent states:", error);
+
 
         if (error) throw error;
         
-        setMetrics(data);
       } catch (err: any) {
         setError(err.message);
       } finally {

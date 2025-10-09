@@ -18,9 +18,11 @@ export default function RuleTimeline() {
         // Fetch data from the 'rule_changes' table in Supabase
         // Assumes you have a table named 'rule_changes'
         const { data, error } = await supabase
-          .from('rule_changes')
+          .from('governance_log')
           .select('*')
-          .order('timestamp', { ascending: false }); // Show the newest changes first
+          .order('id', { ascending: false });
+
+        if (error) console.error("Error fetching governance log:", error);
 
         if (error) throw error;
         

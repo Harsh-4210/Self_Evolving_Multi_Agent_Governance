@@ -30,16 +30,18 @@ export default function SimulationControl() {
       setIsSubmitting(true);
       try {
         // Insert a new row into the 'simulation_runs' table with the current parameters
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('simulation_runs')
-          .insert([{ 
-            status: 'pending', // Or 'running'
+          .insert([{
             speed: params.speed,
             agent_count: params.agent_count,
             transaction_rate: params.transaction_rate,
             proposal_frequency: params.proposal_frequency,
             conflict_probability: params.conflict_probability,
           }]);
+
+if (error) console.error("Insert error:", error);
+
 
         if (error) throw error;
         
