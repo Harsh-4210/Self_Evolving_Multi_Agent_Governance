@@ -99,9 +99,18 @@ class DecentralizedEconomyEnv(AECEnv):
     def _observe(self, agent):
         if agent is None or self.dones.get(agent, True):
             return None
-        # Extract agent-specific observation
-        state = self.agent_states.get(agent, {})
-        obs = np.array([state.get('tokens', 0)], dtype=np.float32)
+        
+        state = self.agent_states.get(agent, get_initial_agent_state()) # Use initial state as a fallback
+        
+        # Construct the 5-element observation vector correctly
+        obs = np.array([
+            state.get('cash', 0),
+            state.get('assets', 0),
+            self.market_price,  # Global market price
+            state.get('reputation', 1.0),
+            state.get('tokens', 0)
+        ], dtype=np.float32)
+        
         return obs
     
     def render(self, mode='human'):
