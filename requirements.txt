@@ -57,5 +57,5 @@ matplotlib
 seaborn
 
 # For backend and database connection
-supabase-py
+supabase
 python-dotenv

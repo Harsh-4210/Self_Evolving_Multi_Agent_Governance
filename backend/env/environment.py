@@ -4,10 +4,8 @@ import numpy as np
 from gymnasium import spaces
 from ray.rllib.env import MultiAgentEnv
 from backend.utils.governance import GovernanceModule
-from backend.utils.utils import get_initial_agent_state, get_observation_space, get_action_space
-
-# Import the enhanced SupabaseConnector
-from backend.utils.db_connector import SupabaseConnector
+from backend.env.utils import get_initial_agent_state, get_observation_space, get_action_space
+from backend.db_connector import SupabaseConnector
 
 
 class DecentralizedEconomyEnv(MultiAgentEnv):
@@ -17,6 +15,7 @@ class DecentralizedEconomyEnv(MultiAgentEnv):
     - Buy/Sell/Propose/Vote actions
     - Reputation and economic reward system
     - Supabase logging for agent states, transactions, governance, and simulation runs
+    - META-LEARNING: Randomized parameters for adaptable agent training
     """
 
     def __init__(self, env_config=None):
@@ -38,6 +37,14 @@ class DecentralizedEconomyEnv(MultiAgentEnv):
         # Economic parameters
         self.tax_rate = 0.05
         self.market_price = 100.0
+        
+        # --- META-LEARNING ADDITION 1: Define parameter ranges for task distribution ---
+        self.price_range = env_config.get("price_range", (75.0, 125.0))
+        self.tax_range = env_config.get("tax_range", (0.02, 0.15))
+        self.volatility_range = env_config.get("volatility_range", (1.005, 1.025))
+        self.volatility_factor = 1.01 # Default, will be sampled in reset()
+        # ----------------------------------------------------------------------------
+
         self.steps = 0
         self.agent_states = {}
 
@@ -48,9 +55,14 @@ class DecentralizedEconomyEnv(MultiAgentEnv):
     # ---------- Reset ----------
     def reset(self, *, seed=None, options=None):
         self.steps = 0
-        self.market_price = 100.0
-        self.tax_rate = 0.05
         self.governance.end_voting_period()
+
+        # --- META-LEARNING ADDITION 2: Sample a new task for the episode ---
+        # Instead of fixed values, sample from the configured ranges.
+        self.market_price = np.random.uniform(*self.price_range)
+        self.tax_rate = np.random.uniform(*self.tax_range)
+        self.volatility_factor = np.random.uniform(*self.volatility_range)
+        # -----------------------------------------------------------------
 
         self.agent_states = {
             agent: {**get_initial_agent_state(), "market_price": self.market_price} for agent in self.agents
@@ -85,7 +97,9 @@ class DecentralizedEconomyEnv(MultiAgentEnv):
                     state["cash"] -= self.market_price
                     state["assets"] += 1
                     state["total_trades"] += 1
-                    self.market_price *= 1.01
+                    # --- META-LEARNING ADDITION 3: Use sampled volatility ---
+                    self.market_price *= self.volatility_factor
+                    # ----------------------------------------------------
                     state["reputation"] += 0.01
                     self.db.log_transaction(agent, "buy", self.market_price)
             elif action == 2:  # Sell
@@ -94,7 +108,9 @@ class DecentralizedEconomyEnv(MultiAgentEnv):
                     state["cash"] += earnings
                     state["assets"] -= 1
                     state["total_trades"] += 1
-                    self.market_price *= 0.99
+                    # --- META-LEARNING ADDITION 3: Use sampled volatility ---
+                    self.market_price /= self.volatility_factor # Use inverse for selling
+                    # ----------------------------------------------------
                     state["reputation"] += 0.01
                     self.db.log_transaction(agent, "sell", self.market_price)
             elif action == 3:  # Propose Rule
