@@ -1,4 +1,4 @@
-from gym import spaces
+from gymnasium import spaces
 import numpy as np
 
 def get_initial_agent_state():

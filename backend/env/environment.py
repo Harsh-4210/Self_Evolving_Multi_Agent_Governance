@@ -1,6 +1,6 @@
-from pettingzoo.utils import agent_selector
+from pettingzoo.utils.agent_selector import agent_selector
 from pettingzoo.utils.env import AECEnv
-from gym import spaces
+from gymnasium import spaces
 import numpy as np
 from .utils import get_initial_agent_state, get_action_space, get_observation_space
 
@@ -9,8 +9,8 @@ class DecentralizedEconomyEnv(AECEnv):
     
     def __init__(self, num_agents=5, max_steps=100):
         super().__init__()
-        self.num_agents = num_agents
-        self.agents = [f"agent_{i}" for i in range(num_agents)]
+        self._num_agents = num_agents
+        self.agents = [f"agent_{i}" for i in range(self._num_agents)]
         self.possible_agents = self.agents[:]
         self.agent_name_mapping = {agent: i for i, agent in enumerate(self.agents)}
         
