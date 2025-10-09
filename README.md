@@ -29,7 +29,7 @@ To build a decentralized multi-agent system where reinforcement learning (RL) ag
 This project requires **Python 3.10**.
 
 To create the correct environment, run the following commands:
-\`\`\`bash
+```bash
 # Create a virtual environment using Python 3.10
 py -3.10 -m venv venv
 
@@ -38,7 +38,7 @@ py -3.10 -m venv venv
 
 # Install the required packages
 pip install -r requirements.txt
-\`\`\`
+```
 
 ## 🚀 How to Run
 
