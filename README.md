@@ -23,12 +23,28 @@ To build a decentralized multi-agent system where reinforcement learning (RL) ag
 - **Meta-Learning:** learn2learn
 - **Data & Visualization:** PostgreSQL, Dash/Plotly
 - **Deployment:** Docker, Kubernetes
+  
+ ## ⚙️ Setup & Prerequisites
+
+This project requires **Python 3.10**.
+
+To create the correct environment, run the following commands:
+\`\`\`bash
+# Create a virtual environment using Python 3.10
+py -3.10 -m venv venv
+
+# Activate it
+.\venv\Scripts\Activate.ps1
+
+# Install the required packages
+pip install -r requirements.txt
+\`\`\`
 
 ## 🚀 How to Run
 
 1.  **Clone the repository:**
     ```bash
-    git clone [https://github.com/your-username/multi-agent-governance-hackathon.git](https://github.com/your-username/multi-agent-governance-hackathon.git)
+    git clone https://github.com/Harsh-4210/Self_Evolving_Multi_Agent_Governance.git
     cd multi-agent-governance-hackathon
     ```
 
