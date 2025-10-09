@@ -41,3 +41,21 @@ typing_extensions==4.15.0
 urllib3==2.5.0
 Werkzeug==3.1.3
 zipp==3.23.0
+
+# --- Added Missing Dependencies ---
+
+# Required by Ray RLlib for training and performance
+scipy
+lz4
+dm-tree
+pyarrow
+Pillow
+
+# For data analysis and visualization (visualize.py)
+pandas
+matplotlib
+seaborn
+
+# For backend and database connection
+supabase-py
+python-dotenv
