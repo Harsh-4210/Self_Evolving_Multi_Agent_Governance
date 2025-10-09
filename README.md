@@ -28,7 +28,7 @@ To build a decentralized multi-agent system where reinforcement learning (RL) ag
 
 1.  **Clone the repository:**
     ```bash
-    git clone [https://github.com/your-username/multi-agent-governance-hackathon.git](https://github.com/your-username/multi-agent-governance-hackathon.git)
+    git clone https://github.com/Harsh-4210/multi-agent-governance-hackathon.git
     cd multi-agent-governance-hackathon
     ```
 
