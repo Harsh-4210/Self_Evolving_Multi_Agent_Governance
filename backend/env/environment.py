@@ -1,120 +1,166 @@
-from pettingzoo.utils.agent_selector import agent_selector
-from pettingzoo.utils.env import AECEnv
-from gymnasium import spaces
+# backend/env/environment.py
+
 import numpy as np
-from .utils import get_initial_agent_state, get_action_space, get_observation_space
+from gymnasium import spaces
+from pettingzoo.utils.env import AECEnv
+from pettingzoo.utils.agent_selector import agent_selector
+
+# --- Assumed content of your utils.py file ---
+# Make sure you have a utils.py file in this same directory (backend/env/)
+# with a function like this:
+def get_initial_agent_state():
+    """Returns the default starting state for any agent."""
+    return {
+        "cash": 1000.0,
+        "assets": 10,
+        "reputation": 1.0,
+        "tokens": 100,
+    }
+# ---------------------------------------------
+
+# Assuming db_connector.py is in the parent `backend` directory
+from ..db_connector import SupabaseConnector
+
 
 class DecentralizedEconomyEnv(AECEnv):
-    metadata = {'render.modes': ['human']}
-    
-    def __init__(self, num_agents=5, max_steps=100):
+    """
+    An AECEnv environment for a multi-agent decentralized economy simulation.
+    Agents can trade assets, affecting a global market price, and participate
+    in governance.
+    """
+    metadata = {'render.modes': ['human'], "name": "decentralized_economy_v0"}
+
+    def __init__(self, render_mode=None, max_steps=100):
         super().__init__()
-        # Define different agent roles explicitly
-        self.agents = ["trader_0", "trader_1", "validator_0", "rule_maker_0"]
-        self.possible_agents = self.agents[:]
-        self.agent_name_mapping = {agent: i for i, agent in enumerate(self.agents)}
+        
+        # Store configuration
+        self.max_steps = max_steps
+        self.render_mode = render_mode
 
-        # Action space expanded based on Task 3.3:
-        # 0: Hold, 1: Buy, 2: Sell, 3: Propose Rule, 4: Vote Yes, 5: Vote No, 6: Negotiate/Other
-        self._action_spaces = {agent: spaces.Discrete(7) for agent in self.agents}
+        # Define agent roles
+        self.possible_agents = ["trader_0", "trader_1", "validator_0", "rule_maker_0"]
+        self.agent_name_mapping = {agent: i for i, agent in enumerate(self.possible_agents)}
 
-        # Observation includes cash, assets, market price, reputation (added for Task 4.2)
-        self._observation_spaces = {agent: spaces.Box(low=0, high=1e6, shape=(5,), dtype=np.float32) for agent in self.agents}
+        # Define action and observation spaces for each agent
+        # 0: Hold, 1: Buy, 2: Sell, 3: Propose Rule, 4: Vote Yes, 5: Vote No, 6: Other
+        self._action_spaces = {agent: spaces.Discrete(7) for agent in self.possible_agents}
+        # Obs: [cash, assets, market_price, reputation, tokens]
+        self._observation_spaces = {agent: spaces.Box(low=0, high=1e6, shape=(5,), dtype=np.float32) for agent in self.possible_agents}
 
-        self.market_price = 100.0
-        self.reputation = {agent: 1.0 for agent in self.agents}  # Task 4.2 reputation
-
-        self.agent_states = {}
-        self.dones = {}
-        self.rewards = {}
-        self.infos = {}
-        self.agent_selector = agent_selector(self.agents)
-        self.agent_selection = None
-
+        # Initialize the database connector
+        try:
+            self.db = SupabaseConnector()
+        except ValueError as e:
+            print(f"Database connection failed: {e}")
+            print("Running simulation without database logging.")
+            self.db = None
+            
     def observation_space(self, agent):
         return self._observation_spaces[agent]
-    
+
     def action_space(self, agent):
         return self._action_spaces[agent]
 
-    def reset(self):
-        self.steps = 0
+    def reset(self, seed=None, options=None):
+        """Resets the environment to a starting state."""
         self.agents = self.possible_agents[:]
-        self.agent_selection = self.agent_selector.reset()
+        self._agent_selector = agent_selector(self.agents)
+        self.agent_selection = self._agent_selector.next()
+        
+        # Reset environment state
+        self.steps = 0
         self.market_price = 100.0
-        self.agent_states = {agent: get_initial_agent_state() for agent in self.agents}
         
+        # Reset agent-specific states
         self.agent_states = {agent: get_initial_agent_state() for agent in self.agents}
-        self.dones = {agent: False for agent in self.agents}
         self.rewards = {agent: 0 for agent in self.agents}
+        self._cumulative_rewards = {agent: 0 for agent in self.agents}
+        self.terminations = {agent: False for agent in self.agents}
+        self.truncations = {agent: False for agent in self.agents}
         self.infos = {agent: {} for agent in self.agents}
+
+        # Return initial observation and info for the first agent
+        observation = self.observe(self.agent_selection)
+        info = self.infos[self.agent_selection]
+        return observation, info
+
+    def observe(self, agent):
+        """Returns the observation for the specified agent."""
+        state = self.agent_states[agent]
         
-        return self._observe(self.agent_selection)
-    
+        # Construct the 5-element observation vector
+        return np.array([
+            state.get('cash', 0),
+            state.get('assets', 0),
+            self.market_price,
+            state.get('reputation', 1.0),
+            state.get('tokens', 0)
+        ], dtype=np.float32)
+
     def step(self, action):
-        agent = self.agent_selection
-        if self.dones[agent]:
-            self._was_done_step(action)
+        """Executes one step for the current agent."""
+        if self.terminations[self.agent_selection] or self.truncations[self.agent_selection]:
+            # This is the critical fix from our last error message
+            self._was_dead_step(action)
             return
 
+        agent = self.agent_selection
         state = self.agent_states[agent]
 
-        # Example random or explicit action handling
+        # --- Action Consequences ---
         if action == 1:  # Buy
             if state["cash"] >= self.market_price:
                 state["cash"] -= self.market_price
                 state["assets"] += 1
-                self.market_price *= 1.01
-                state["reputation"] += 0.1  # Reward for successful trade
+                self.market_price *= 1.01  # Simulate price increase
+                state["reputation"] += 0.01
+                if self.db:
+                    self.db.log_transaction(agent, 'buy', self.market_price, 1)
+
         elif action == 2:  # Sell
             if state["assets"] > 0:
                 state["cash"] += self.market_price
                 state["assets"] -= 1
-                self.market_price *= 0.99
-                state["reputation"] += 0.1
-        elif action == 3:  # Propose Rule (calls governance module)
-            # governance.start_new_proposal(...)
-            pass
-        elif action == 4:  # Vote Yes
-            # governance.cast_vote(agent, True)
-            pass
-        elif action == 5:  # Vote No
-            # governance.cast_vote(agent, False)
-            pass
-        elif action == 6:  # Negotiate
-            # implement negotiation protocols later
-            pass
-
-        # Update agent state
-        self.agent_states[agent] = state
-
-        # Rewards, done flags, info dictionaries updated accordingly
-        self.rewards[agent] = 0  
-        self.dones[agent] = False
-
-        self.agent_selection = self.agent_selector.next()    
-        return self._observe(self.agent_selection)
-
-    
-    def _observe(self, agent):
-        if agent is None or self.dones.get(agent, True):
-            return None
+                self.market_price *= 0.99  # Simulate price decrease
+                state["reputation"] += 0.01
+                if self.db:
+                    self.db.log_transaction(agent, 'sell', self.market_price, 1)
         
-        state = self.agent_states.get(agent, get_initial_agent_state()) # Use initial state as a fallback
+        # Periodically log agent state (e.g., at the end of each full cycle)
+        if self.db and self._agent_selector.is_last():
+            self.db.log_agent_state(agent, state)
+            
+        # --- Update Environment State ---
+        if self._agent_selector.is_last():
+            # All agents have taken a turn, increment the main step counter
+            self.steps += 1
+            # Check for truncation (time limit)
+            if self.steps >= self.max_steps:
+                for ag in self.agents:
+                    self.truncations[ag] = True
         
-        # Construct the 5-element observation vector correctly
-        obs = np.array([
-            state.get('cash', 0),
-            state.get('assets', 0),
-            self.market_price,  # Global market price
-            state.get('reputation', 1.0),
-            state.get('tokens', 0)
-        ], dtype=np.float32)
-        
-        return obs
-    
-    def render(self, mode='human'):
-        # Minimal render: print token counts
-        print(f"Step {self.steps}:")
-        for agent, state in self.agent_states.items():
-            print(f"{agent}: Tokens = {state['tokens']}")
+        # Select the next agent
+        self.agent_selection = self._agent_selector.next()
+        self._accumulate_rewards()
+
+        if self.render_mode == 'human':
+            self.render()
+
+    def render(self):
+        """Renders the environment state."""
+        if self.render_mode == 'human':
+            print(f"\n--- Step {self.steps} --- Market Price: ${self.market_price:.2f}")
+            for agent in self.possible_agents:
+                # Use a try-except block in case an agent's state is missing
+                try:
+                    state = self.agent_states[agent]
+                    print(
+                        f"{agent}: Cash: ${state['cash']:.2f}, "
+                        f"Assets: {state['assets']}, Reputation: {state['reputation']:.2f}"
+                    )
+                except KeyError:
+                    print(f"{agent}: (State not available)")
+
+    def close(self):
+        """Closes the environment and cleans up resources."""
+        pass
