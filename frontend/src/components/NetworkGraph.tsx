@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import type { Agent } from '../types/governance';
 import { X } from 'lucide-react';
@@ -7,7 +7,6 @@ export default function NetworkGraph() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
   const [positions, setPositions] = useState<Map<string, { x: number; y: number }>>(new Map());
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -17,11 +16,11 @@ export default function NetworkGraph() {
     async function fetchAgents() {
       try {
         setLoading(true);
-        const { data, error } = await supabase.from('transactions').select('*').limit(5); // limit 5 agents
+        const { data, error } = await supabase.from('transactions').select('*').limit(5);
         if (error) throw error;
         setAgents(data || []);
       } catch (err: any) {
-        setError(err.message);
+        setError(err.message || 'Error fetching agents');
       } finally {
         setLoading(false);
       }
@@ -29,43 +28,37 @@ export default function NetworkGraph() {
     fetchAgents();
   }, []);
 
-  // Calculate positions
+  // Calculate positions in a circular layout
   useEffect(() => {
-    if (agents.length === 0) return;
-
+    if (!agents.length) return;
     const radius = 180;
     const centerX = 300;
     const centerY = 250;
     const newPositions = new Map<string, { x: number; y: number }>();
-
-    agents.forEach((agent, index) => {
-      const angle = (index / agents.length) * 2 * Math.PI - Math.PI / 2;
+    agents.forEach((agent, i) => {
+      const angle = (i / agents.length) * 2 * Math.PI - Math.PI / 2;
       const x = centerX + radius * Math.cos(angle);
       const y = centerY + radius * Math.sin(angle);
-      if (isFinite(x) && isFinite(y)) newPositions.set(agent.id, { x, y });
+      newPositions.set(agent.id, { x, y });
     });
-
     setPositions(newPositions);
   }, [agents]);
 
-  // Draw canvas
-  useEffect(() => {
+  // Draw network graph on canvas
+  const draw = useCallback(() => {
     const canvas = canvasRef.current;
-    if (!canvas || positions.size === 0) return;
+    if (!canvas || !positions.size) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // Draw connections
     agents.forEach(agent => {
       const pos = positions.get(agent.id);
       if (!pos || !agent.connections) return;
-
       agent.connections.forEach(targetId => {
         const targetPos = positions.get(targetId);
         if (!targetPos) return;
-
         ctx.beginPath();
         ctx.moveTo(pos.x, pos.y);
         ctx.lineTo(targetPos.x, targetPos.y);
@@ -82,7 +75,6 @@ export default function NetworkGraph() {
 
       const reputationRatio = Math.min(Math.max(agent.reputation ?? 0, 0), 100) / 100;
       const size = 8 + reputationRatio * 8;
-      if (!isFinite(pos.x) || !isFinite(pos.y) || !isFinite(size)) return;
 
       const gradient = ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, size);
       if (agent.status === 'active') {
@@ -101,6 +93,7 @@ export default function NetworkGraph() {
       ctx.fillStyle = gradient;
       ctx.fill();
 
+      // Highlight selected agent
       if (selectedAgent?.id === agent.id) {
         ctx.beginPath();
         ctx.arc(pos.x, pos.y, size + 4, 0, 2 * Math.PI);
@@ -109,44 +102,52 @@ export default function NetworkGraph() {
         ctx.stroke();
       }
 
+      // White border
       ctx.beginPath();
       ctx.arc(pos.x, pos.y, size, 0, 2 * Math.PI);
-      ctx.strokeStyle = 'white';
+      ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 2;
       ctx.stroke();
     });
   }, [agents, positions, selectedAgent]);
 
-  // Click handler
+  // Trigger drawing on changes
+  useEffect(() => {
+    const id = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(id);
+  }, [draw]);
+
+  // Handle canvas click to select agent
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    let foundAgent: Agent | null = null;
+    let found: Agent | null = null;
     for (let i = agents.length - 1; i >= 0; i--) {
       const agent = agents[i];
       const pos = positions.get(agent.id);
       if (!pos) continue;
-
-      const reputationRatio = Math.min(Math.max(agent.reputation ?? 0, 0), 100) / 100;
-      const size = 8 + reputationRatio * 8;
+      const size = 8 + Math.min(Math.max(agent.reputation ?? 0, 0), 100) / 100 * 8;
       const distance = Math.sqrt((x - pos.x) ** 2 + (y - pos.y) ** 2);
-
       if (distance <= size) {
-        foundAgent = agent;
+        found = agent;
         break;
       }
     }
-
-    setSelectedAgent(foundAgent);
+    setSelectedAgent(found);
   };
 
-  if (loading) return <div className="p-6 text-center">Loading Agent Network...</div>;
-  if (error) return <div className="p-6 text-center text-red-600">Error: {error}</div>;
+  if (loading)
+    return (
+      <div className="p-6 bg-white rounded-lg animate-pulse h-96 flex items-center justify-center">
+        Loading Agent Network...
+      </div>
+    );
+
+  if (error) return <div className="p-6 text-center text-red-600">{error}</div>;
 
   return (
     <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
@@ -172,15 +173,15 @@ export default function NetworkGraph() {
               </button>
             </div>
 
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between"><span className="text-slate-600">Role:</span><span className="font-medium text-slate-900">{selectedAgent.role}</span></div>
-              <div className="flex justify-between"><span className="text-slate-600">Status:</span><span className={`font-medium capitalize ${selectedAgent.status === 'active' ? 'text-emerald-600' : selectedAgent.status === 'inactive' ? 'text-slate-600' : 'text-red-600'}`}>{selectedAgent.status}</span></div>
-              <div className="flex justify-between"><span className="text-slate-600">Reputation:</span><span className="font-medium text-slate-900">{selectedAgent.reputation}/100</span></div>
+            <div className="space-y-2 text-sm text-slate-700">
+              <div className="flex justify-between"><span>Role:</span><span className="font-medium">{selectedAgent.role}</span></div>
+              <div className="flex justify-between"><span>Status:</span><span className={`font-medium capitalize ${selectedAgent.status === 'active' ? 'text-emerald-600' : selectedAgent.status === 'inactive' ? 'text-slate-400' : 'text-red-600'}`}>{selectedAgent.status}</span></div>
+              <div className="flex justify-between"><span>Reputation:</span><span className="font-medium">{selectedAgent.reputation}/100</span></div>
               <div className="w-full bg-slate-200 rounded-full h-2 mt-1">
                 <div className="bg-emerald-500 h-2 rounded-full transition-all duration-300" style={{ width: `${Math.min(Math.max(selectedAgent.reputation ?? 0,0),100)}%` }}></div>
               </div>
-              <div className="flex justify-between mt-3"><span className="text-slate-600">Voting Power:</span><span className="font-medium text-slate-900">{selectedAgent.voting_power?.toLocaleString() ?? 0}</span></div>
-              <div className="flex justify-between"><span className="text-slate-600">Connections:</span><span className="font-medium text-slate-900">{selectedAgent.connections?.length ?? 0}</span></div>
+              <div className="flex justify-between mt-3"><span>Voting Power:</span><span className="font-medium">{selectedAgent.voting_power?.toLocaleString() ?? 0}</span></div>
+              <div className="flex justify-between"><span>Connections:</span><span className="font-medium">{selectedAgent.connections?.length ?? 0}</span></div>
             </div>
           </div>
         )}

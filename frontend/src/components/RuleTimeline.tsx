@@ -1,15 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { CheckCircle2, XCircle, Clock, TrendingUp } from 'lucide-react';
 
-// TypeScript type matching Supabase response
 export interface RuleChange {
   id: string;
   title?: string;
   description?: string;
   type?: 'enacted' | 'rejected' | 'voting' | 'proposed' | string;
   impact?: 'high' | 'medium' | 'low' | string;
-  timestamp: string; // Keep as string from Supabase
+  timestamp: string;
   votes?: {
     for: number;
     against: number;
@@ -20,6 +19,11 @@ export default function RuleTimeline() {
   const [ruleChanges, setRuleChanges] = useState<RuleChange[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentTime, setCurrentTime] = useState(Date.now());
+  const intervalRef = useRef<number | null>(null);
+
+  // Simulation speed (1 = real time)
+  const speed = 1;
 
   useEffect(() => {
     async function fetchRuleChanges() {
@@ -28,11 +32,10 @@ export default function RuleTimeline() {
         const { data, error } = await supabase
           .from('governance_log')
           .select('*')
-          .order('id', { ascending: false });
+          .order('id', { ascending: true });
 
         if (error) throw error;
 
-        // Provide placeholder sample data if no data is returned
         const normalized: RuleChange[] = (data && data.length ? data : [
           {
             id: 'sample1',
@@ -65,7 +68,21 @@ export default function RuleTimeline() {
     fetchRuleChanges();
   }, []);
 
-  // Helper functions
+  // Live ticking timer
+  useEffect(() => {
+    intervalRef.current = window.setInterval(() => {
+      setCurrentTime(prev => prev + 1000 * speed);
+    }, 1000);
+
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, []);
+
+  const visibleRules = ruleChanges.filter(
+    rule => new Date(rule.timestamp).getTime() <= currentTime
+  );
+
   const getTypeIcon = (type?: string) => {
     switch (type) {
       case 'enacted': return <CheckCircle2 className="w-5 h-5 text-emerald-600" />;
@@ -107,9 +124,17 @@ export default function RuleTimeline() {
     return 'Just now';
   };
 
-  if (loading) return <div className="p-6 text-center">Loading timeline...</div>;
-  if (error) return <div className="p-6 text-center text-red-600">Error: {error}</div>;
-  if (!ruleChanges || ruleChanges.length === 0) return <div className="p-6 text-center">No rule changes found.</div>;
+  if (loading)
+    return (
+      <div className="p-6 space-y-4">
+        {[1, 2, 3].map(i => (
+          <div key={i} className="h-24 bg-slate-200 rounded-lg animate-pulse"></div>
+        ))}
+      </div>
+    );
+
+  if (error) return <div className="p-6 text-center text-red-600">{error}</div>;
+  if (!ruleChanges.length) return <div className="p-6 text-center text-slate-600">No rule changes found.</div>;
 
   return (
     <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
@@ -117,7 +142,7 @@ export default function RuleTimeline() {
       <div className="relative">
         <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-slate-200"></div>
         <div className="space-y-6">
-          {ruleChanges.map((change, index) => (
+          {visibleRules.map((change, index) => (
             <div
               key={change.id}
               className="relative pl-14 animate-in fade-in slide-in-from-left-4 duration-500"
@@ -163,7 +188,7 @@ export default function RuleTimeline() {
                             style={{
                               width: `${(change.votes.for / (change.votes.for + change.votes.against)) * 100}%`,
                             }}
-                          ></div>
+                          />
                         </div>
                       </div>
                     </div>

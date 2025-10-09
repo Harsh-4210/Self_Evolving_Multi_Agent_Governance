@@ -2,19 +2,20 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { AlertCircle, CheckCircle2, MessageSquare, ArrowUpCircle } from 'lucide-react';
 
-// Define a TypeScript type matching your table structure
+interface Log {
+  actor: string;
+  action: string;
+  details: string;
+  timestamp: string;
+}
+
 interface Transaction {
   id: string;
   title: string;
   status: 'open' | 'negotiating' | 'resolved' | 'escalated' | string;
   severity: 'low' | 'medium' | 'high' | 'critical' | string;
   parties: string[];
-  logs: {
-    actor: string;
-    action: string;
-    details: string;
-    timestamp: string;
-  }[];
+  logs: Log[];
   outcome?: string;
   created_at: string;
   resolved_at?: string;
@@ -50,7 +51,7 @@ export default function ConflictPanel() {
   const [selectedConflict, setSelectedConflict] = useState<string | null>(null);
 
   useEffect(() => {
-    async function fetchConflicts() {
+    const fetchConflicts = async () => {
       try {
         setLoading(true);
         const { data, error } = await supabase
@@ -60,22 +61,23 @@ export default function ConflictPanel() {
 
         if (error) throw error;
 
-        const normalized = (data || []).map((item) => ({
+        const normalized = (data || []).map((item: any) => ({
           ...item,
-          parties: item.parties || [],
-          logs: item.logs || [],
-          status: item.status || 'open',
-          severity: item.severity || 'low',
+          parties: item.parties ?? [],
+          logs: item.logs ?? [],
+          status: item.status ?? 'open',
+          severity: item.severity ?? 'low',
         })) as Transaction[];
 
-        setConflicts(normalized.length > 0 ? normalized : placeholderData);
+        setConflicts(normalized.length ? normalized : placeholderData);
       } catch (err: any) {
-        setError(err.message || 'Unknown error');
+        console.error('Supabase fetch error:', err);
+        setError(err.message || 'Unable to fetch conflicts');
         setConflicts(placeholderData);
       } finally {
         setLoading(false);
       }
-    }
+    };
 
     fetchConflicts();
   }, []);
@@ -91,29 +93,30 @@ export default function ConflictPanel() {
   };
 
   const getStatusColor = (status: string) => {
-    const colors = {
+    const colors: Record<string, string> = {
       open: 'bg-amber-50 border-amber-200 text-amber-700',
       negotiating: 'bg-blue-50 border-blue-200 text-blue-700',
       resolved: 'bg-emerald-50 border-emerald-200 text-emerald-700',
       escalated: 'bg-red-50 border-red-200 text-red-700',
     };
-    return colors[status as keyof typeof colors] || 'bg-slate-50 border-slate-200 text-slate-700';
+    return colors[status] ?? 'bg-slate-50 border-slate-200 text-slate-700';
   };
 
   const getSeverityColor = (severity: string) => {
-    const colors = {
+    const colors: Record<string, string> = {
       low: 'bg-blue-100 text-blue-700',
       medium: 'bg-amber-100 text-amber-700',
-      high: 'bg-orange-100 text-orange-700',
+      high: 'bg-amber-100 text-amber-700',
       critical: 'bg-red-100 text-red-700',
     };
-    return colors[severity as keyof typeof colors] || colors.low;
+    return colors[severity] ?? colors.low;
   };
 
   const formatTimestamp = (dateString: string | Date) => {
+    if (!dateString) return 'Unknown';
     const date = new Date(dateString);
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
+    if (isNaN(date.getTime())) return 'Invalid date';
+    const diff = new Date().getTime() - date.getTime();
     const minutes = Math.floor(diff / (1000 * 60));
     const hours = Math.floor(minutes / 60);
     const days = Math.floor(hours / 24);
@@ -147,7 +150,7 @@ export default function ConflictPanel() {
           return (
             <div
               key={conflict.id}
-              className={`border rounded-lg overflow-hidden transition-all duration-300 hover:shadow-md animate-in fade-in slide-in-from-left-4 ${getStatusColor(conflict.status)}`}
+              className={`border rounded-lg overflow-hidden transition-all duration-300 hover:shadow-md hover:scale-[1.01] animate-in fade-in slide-in-from-left-4 ${getStatusColor(conflict.status)}`}
               style={{ animationDelay: `${index * 100}ms` }}
             >
               <div className="p-4 cursor-pointer" onClick={() => setSelectedConflict(isExpanded ? null : conflict.id)}>
@@ -183,15 +186,13 @@ export default function ConflictPanel() {
                 {conflict.outcome && (
                   <div className="mt-3 p-3 bg-white rounded-lg border border-emerald-200">
                     <p className="text-sm text-emerald-700 font-medium">Outcome: {conflict.outcome}</p>
-                    {conflict.resolved_at && (
-                      <p className="text-xs text-slate-500 mt-1">Resolved {formatTimestamp(conflict.resolved_at)}</p>
-                    )}
+                    {conflict.resolved_at && <p className="text-xs text-slate-500 mt-1">Resolved {formatTimestamp(conflict.resolved_at)}</p>}
                   </div>
                 )}
               </div>
 
               {isExpanded && (
-                <div className="border-t border-slate-200 bg-white p-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="border-t border-slate-200 bg-slate-50 p-4 animate-in fade-in slide-in-from-top-2 duration-300">
                   <h4 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
                     <MessageSquare className="w-4 h-4" /> Negotiation Log
                   </h4>
@@ -215,13 +216,11 @@ export default function ConflictPanel() {
                       : <p className="text-sm text-slate-500 italic">No logs available for this conflict.</p>
                     }
                   </div>
-                  {conflict.status !== 'resolved' && (
-                    <div className="mt-4 pt-4 border-t border-slate-200">
-                      <button className="w-full px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors duration-200">
-                        Join Mediation
-                      </button>
-                    </div>
-                  )}
+                  <div className="mt-4 pt-4 border-t border-slate-200">
+                    <button className="w-full px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-all duration-200 shadow-sm disabled:opacity-50" disabled={conflict.status === 'resolved'}>
+                      Join Mediation
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
