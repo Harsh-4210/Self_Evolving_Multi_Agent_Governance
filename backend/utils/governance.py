@@ -1,86 +1,95 @@
 # backend/utils/governance.py
+import uuid
+import time
 
 class GovernanceModule:
     """
-    A self-contained module to manage the proposal and voting process.
-    (Version 2: Separates tallying from state reset for reward distribution)
+    Self-contained governance system for proposals and voting.
+    Features:
+    - Unique proposal IDs
+    - Step-based timestamps
+    - Weighted votes based on agent reputation
+    - Detailed logging for analytics
     """
 
     def __init__(self, eligible_voters, vote_duration_steps=10):
-        """
-        Initializes the governance system.
-        """
         self.eligible_voters = set(eligible_voters)
         self.vote_duration = vote_duration_steps
         self.proposal_details = None
         self._reset_vote_state()
 
     def _reset_vote_state(self):
-        """Internal method to reset all state variables to their default."""
+        """Reset all voting state except proposal details (kept for env rewards)."""
         self.is_vote_active = False
-        # We don't reset proposal_details here, so the env can read it after a vote
         self.votes = {}
         self.vote_start_step = -1
         self.outcome = None
 
+    # ---------- Proposal ----------
     def start_proposal(self, proposed_by, rule, new_value, current_step):
         """
-        Starts a new voting process if one is not already active.
+        Starts a new proposal if no vote is active.
+        Assigns a unique proposal ID.
         """
         if self.is_vote_active:
             return False
 
-        print(f"🏛️ New Proposal Started by {proposed_by}: Change '{rule}' to '{new_value}'")
+        proposal_id = str(uuid.uuid4())
         self.is_vote_active = True
-        self.proposal_details = {"proposer": proposed_by, "rule": rule, "value": new_value}
+        self.proposal_details = {
+            "id": proposal_id,
+            "proposer": proposed_by,
+            "rule": rule,
+            "value": new_value,
+            "start_step": current_step,
+            "timestamp": time.time()
+        }
         self.vote_start_step = current_step
-        self.votes = {} # Clear votes for the new proposal
+        self.votes = {}
         self.outcome = None
+
+        print(f"🏛️ Proposal Started [{proposal_id}] by {proposed_by}: Change '{rule}' → {new_value}")
         return True
 
-    def cast_vote(self, agent_id, vote):
+    # ---------- Voting ----------
+    def cast_vote(self, agent_id, vote, weight=1.0):
         """
-        Records a vote from an eligible agent.
+        Record a vote from an eligible agent.
+        Weight can be used for reputation-based voting.
         """
-        # Return false if vote is not active, agent is not eligible, or agent has already voted
         if not self.is_vote_active or agent_id not in self.eligible_voters or agent_id in self.votes:
             return False
         
-        # Record the valid vote
-        self.votes[agent_id] = vote
-        print(f"🗳️ Vote Cast: {agent_id} voted {'Yes' if vote else 'No'}")
+        self.votes[agent_id] = {"vote": vote, "weight": weight}
+        print(f"🗳️ Vote Cast: {agent_id} voted {'Yes' if vote else 'No'} (weight={weight})")
         return True
 
+    # ---------- Tally Votes ----------
     def tally_votes(self, current_step):
         """
-        Checks if the voting period is over and determines the outcome.
-        IMPORTANT: This version no longer resets the state automatically.
+        Tally votes if voting period is over.
+        Uses simple weighted majority.
         """
         if not self.is_vote_active or self.outcome is not None:
-            return None # Vote is not active or has already been tallied
+            return None
 
-        # Check if the voting period has ended
         if current_step >= self.vote_start_step + self.vote_duration:
-            yes_votes = sum(1 for v in self.votes.values() if v is True)
-            no_votes = len(self.votes) - yes_votes
-            
-            # Determine outcome with a simple majority
-            self.outcome = 'passed' if yes_votes > no_votes else 'failed'
-            
-            print("-" * 20)
-            print("VOTING PERIOD ENDED - TALLYING RESULTS")
-            print(f"Proposal: Change '{self.proposal_details['rule']}' to '{self.proposal_details['value']}'")
-            print(f"Results: {yes_votes} Yes vs. {no_votes} No -> {self.outcome.upper()}")
-            print("-" * 20)
-            
+            yes_weight = sum(v['weight'] for v in self.votes.values() if v['vote'])
+            no_weight = sum(v['weight'] for v in self.votes.values() if not v['vote'])
+
+            self.outcome = 'passed' if yes_weight > no_weight else 'failed'
+
+            print("-" * 40)
+            print(f"✅ VOTING ENDED - Proposal [{self.proposal_details['id']}]")
+            print(f"Rule: {self.proposal_details['rule']} → {self.proposal_details['value']}")
+            print(f"Weighted Votes: Yes={yes_weight} | No={no_weight} → Outcome={self.outcome.upper()}")
+            print("-" * 40)
+
             return self.outcome
-        
-        # If voting period is not over, return None
+
         return None
 
+    # ---------- End Voting ----------
     def end_voting_period(self):
-        """
-        Public method to be called by the environment AFTER distributing rewards
-        to reset the state for the next proposal.
-        """
+        """Reset voting state after rewards are distributed."""
         self._reset_vote_state()

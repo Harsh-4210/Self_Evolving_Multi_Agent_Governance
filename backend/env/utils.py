@@ -1,30 +1,40 @@
-#utils.py
+# backend/utils/utils.py
 from gymnasium import spaces
-from gymnasium.spaces import Discrete, Box
 import numpy as np
 
-def get_initial_agent_state():
-    # Start each agent with 10 tokens
-    return {"tokens": 10}
-
-def get_observation_space():
-    # Simple observation: current token count (scalar)
-    return spaces.Box(low=0, high=1000, shape=(1,), dtype=np.float32)
-
-def get_action_space():
-    # Example action space:
-    # 0 = Pass, 1 = Propose new rule, 2 = Vote yes, 3 = Vote no, 4 = Trade tokens (simple placeholder)
-    return spaces.Discrete(5)
-
-def get_initial_agent_state():
+# ---------- Agent State ----------
+def get_initial_agent_state(cash=1000.0, assets=0, tokens=100, reputation=1.0, voting_power=1.0):
+    """
+    Returns the starting state for a single agent.
+    Includes optional tracking for last action and total trades.
+    """
     return {
-        "cash": 1000.0,
-        "assets": 0,
-        "tokens": 10,
-        "reputation": 1.0,
-        "voting_power": 1.0,  # could tie to reputation for weighted voting
+        "cash": cash,
+        "assets": assets,
+        "tokens": tokens,
+        "reputation": reputation,
+        "voting_power": voting_power,
+        "last_action": None,
+        "total_trades": 0
     }
 
+# ---------- Action Space ----------
 def get_action_space():
-    # 0 = Hold, 1 = Buy, 2 = Sell
-    return spaces.Discrete(3)
+    """
+    Returns a Discrete action space for agent decisions:
+    0 = Hold
+    1 = Buy
+    2 = Sell
+    3 = Propose Rule
+    4 = Vote Yes
+    5 = Vote No
+    """
+    return spaces.Discrete(6)
+
+# ---------- Observation Space ----------
+def get_observation_space():
+    """
+    Returns a Box observation space with:
+    [cash, assets, tokens, market_price, reputation, tax_rate]
+    """
+    return spaces.Box(low=0, high=1e6, shape=(6,), dtype=np.float32)
