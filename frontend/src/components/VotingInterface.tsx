@@ -20,14 +20,13 @@ export default function VotingInterface() {
 
       if (error) throw error;
 
-      // Convert string numbers to actual numbers
       const normalized = (data || []).map(p => ({
         ...p,
         votes_for: Number(p.votes_for || 0),
         votes_against: Number(p.votes_against || 0),
         votes_abstain: Number(p.votes_abstain || 0),
-        total_voting_power: Number(p.total_voting_power || 1), // avoid division by zero
-        ends_at: p.ends_at ? new Date(p.ends_at) : new Date(), // convert string -> Date
+        total_voting_power: Number(p.total_voting_power || 1),
+        ends_at: p.ends_at ? new Date(p.ends_at) : new Date(),
       }));
 
       setProposals(normalized);
@@ -53,7 +52,19 @@ export default function VotingInterface() {
 
       if (error) throw error;
 
-      fetchProposals();
+      // Optimistically update the vote locally
+      setProposals(prev =>
+        prev.map(p =>
+          p.id === proposalId
+            ? {
+                ...p,
+                votes_for: voteType === 'for' ? p.votes_for + 1 : p.votes_for,
+                votes_against: voteType === 'against' ? p.votes_against + 1 : p.votes_against,
+                votes_abstain: voteType === 'abstain' ? p.votes_abstain + 1 : p.votes_abstain,
+              }
+            : p
+        )
+      );
     } catch (err: any) {
       alert(`Error casting vote: ${err.message}`);
     } finally {
@@ -64,18 +75,26 @@ export default function VotingInterface() {
   const getTimeRemaining = (endsAt: Date) => {
     const now = new Date();
     const diff = endsAt.getTime() - now.getTime();
-    if (diff < 0) return "Voting ended";
+    if (diff <= 0) return "Voting ended";
 
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const days = Math.floor(hours / 24);
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor(diff / (1000 * 60 * 60)) % 24;
 
-    if (days > 0) return `${days}d ${hours % 24}h remaining`;
+    if (days > 0) return `${days}d ${hours}h remaining`;
     if (hours > 0) return `${hours}h remaining`;
     return 'Ending soon';
   };
 
-  if (loading) return <div className="p-6 text-center">Loading active proposals...</div>;
-  if (error) return <div className="p-6 text-center text-red-600">Error: {error}</div>;
+  if (loading)
+    return (
+      <div className="p-6 space-y-4">
+        {[1, 2, 3].map(i => (
+          <div key={i} className="bg-slate-200 h-24 rounded-lg animate-pulse"></div>
+        ))}
+      </div>
+    );
+
+  if (error) return <div className="p-6 text-center text-red-600">{error}</div>;
 
   return (
     <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
@@ -88,10 +107,6 @@ export default function VotingInterface() {
 
       <div className="space-y-4">
         {proposals.map((proposal, index) => {
-          const totalVotes = proposal.votes_for + proposal.votes_against + proposal.votes_abstain;
-          const forPercentage = (proposal.votes_for / proposal.total_voting_power) * 100;
-          const againstPercentage = (proposal.votes_against / proposal.total_voting_power) * 100;
-          const abstainPercentage = (proposal.votes_abstain / proposal.total_voting_power) * 100;
           const isExpanded = selectedProposal === proposal.id;
 
           return (

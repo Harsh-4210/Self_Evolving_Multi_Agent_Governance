@@ -3,7 +3,6 @@ import { supabase } from '../supabaseClient';
 import { TrendingUp, TrendingDown, Activity, Users, Vote, Award } from 'lucide-react';
 import type { GovernanceMetrics } from '../types/governance';
 
-// Helper component for individual metric cards
 const MetricCard = ({
   title,
   value,
@@ -23,7 +22,7 @@ const MetricCard = ({
     <div className="flex items-start justify-between">
       <div className="flex-1">
         <div className="flex items-center gap-2 mb-2">
-          <div className={`p-2 rounded-lg ${color}`}>
+          <div className={`p-2 rounded-lg ${color}`} aria-label={title}>
             <Icon className="w-5 h-5 text-white" />
           </div>
           <h3 className="text-sm font-medium text-slate-600">{title}</h3>
@@ -51,7 +50,7 @@ export default function MetricsPanel() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function fetchMetrics() {
+    const fetchMetrics = async () => {
       try {
         setLoading(true);
         const { data, error } = await supabase
@@ -62,25 +61,20 @@ export default function MetricsPanel() {
 
         if (error) throw error;
 
-        // Use first row or fallback to placeholder
-        if (data && data.length > 0) {
-          setMetrics(data[0] as GovernanceMetrics);
-        } else {
-          // Placeholder sample values if no data
-          setMetrics({
-            total_token_supply: 1000000,
-            transaction_volume: 50000,
-            inflation_rate: 2.5,
-            active_proposals: 8,
-            total_agents: 120,
-            active_agents: 95,
-            average_reputation: 4.2,
-            governance_participation: 67.5,
-          });
-        }
+        const row = data && data.length > 0 ? data[0] : null;
+        setMetrics({
+          total_token_supply: row?.total_token_supply ?? 0,
+          transaction_volume: row?.transaction_volume ?? 0,
+          inflation_rate: row?.inflation_rate ?? 0,
+          active_proposals: row?.active_proposals ?? 0,
+          total_agents: row?.total_agents ?? 0,
+          active_agents: row?.active_agents ?? 0,
+          average_reputation: row?.average_reputation ?? 0,
+          governance_participation: row?.governance_participation ?? 0,
+        });
       } catch (err: any) {
-        setError(err.message || 'Unknown error');
-        // Fallback placeholder even if error
+        console.error('Supabase fetch error:', err);
+        setError(err.message || 'Unable to fetch governance metrics');
         setMetrics({
           total_token_supply: 0,
           transaction_volume: 0,
@@ -94,15 +88,15 @@ export default function MetricsPanel() {
       } finally {
         setLoading(false);
       }
-    }
+    };
 
     fetchMetrics();
   }, []);
 
   const formatNumber = (num?: number) => {
     if (num === undefined || num === null) return '0';
-    if (num >= 1000000) return `${(num / 1000000).toFixed(2)}M`;
-    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
+    if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(2)}M`;
+    if (num >= 1_000) return `${(num / 1_000).toFixed(1)}K`;
     return num.toFixed(0);
   };
 
@@ -138,7 +132,7 @@ export default function MetricsPanel() {
         />
         <MetricCard
           title="Inflation Rate"
-          value={metrics.inflation_rate !== undefined ? metrics.inflation_rate.toFixed(2) : '0.00'}
+          value={metrics.inflation_rate.toFixed(2)}
           unit="%"
           icon={Activity}
           color="bg-orange-500"
@@ -146,7 +140,7 @@ export default function MetricsPanel() {
         />
         <MetricCard
           title="Active Proposals"
-          value={metrics.active_proposals !== undefined ? metrics.active_proposals : 0}
+          value={metrics.active_proposals}
           icon={Vote}
           color="bg-violet-500"
         />
@@ -155,27 +149,27 @@ export default function MetricsPanel() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
           title="Total Agents"
-          value={metrics.total_agents !== undefined ? metrics.total_agents : 0}
+          value={metrics.total_agents}
           icon={Users}
           color="bg-cyan-500"
         />
         <MetricCard
           title="Active Agents"
-          value={metrics.active_agents !== undefined ? metrics.active_agents : 0}
+          value={metrics.active_agents}
           icon={Users}
           color="bg-teal-500"
           trend={5.2}
         />
         <MetricCard
           title="Avg Reputation"
-          value={metrics.average_reputation !== undefined ? metrics.average_reputation.toFixed(1) : '0.0'}
+          value={metrics.average_reputation.toFixed(1)}
           icon={Award}
           color="bg-amber-500"
           trend={3.1}
         />
         <MetricCard
           title="Participation Rate"
-          value={metrics.governance_participation !== undefined ? metrics.governance_participation.toFixed(1) : '0.0'}
+          value={metrics.governance_participation.toFixed(1)}
           unit="%"
           icon={Vote}
           color="bg-rose-500"

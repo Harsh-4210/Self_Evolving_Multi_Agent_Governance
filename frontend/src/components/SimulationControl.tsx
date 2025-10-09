@@ -30,12 +30,8 @@ export default function SimulationControl() {
 
     setIsSubmitting(true);
     try {
-      const { data, error } = await supabase
-        .from('simulation_runs')
-        .insert([params]);
-
+      const { error } = await supabase.from('simulation_runs').insert([params]);
       if (error) throw error;
-
       setIsRunning(true);
       alert('Simulation started successfully!');
     } catch (err: any) {
@@ -71,7 +67,9 @@ export default function SimulationControl() {
           <button
             onClick={() => setShowSettings(!showSettings)}
             className={`p-2 rounded-lg transition-colors ${
-              showSettings ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              showSettings
+                ? 'bg-blue-100 text-blue-600'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
             <Settings className="w-5 h-5" />
@@ -79,7 +77,7 @@ export default function SimulationControl() {
         </div>
       </div>
 
-      <div className="flex items-center gap-3 mb-6">
+      <div className="flex flex-col md:flex-row items-stretch gap-3 mb-6">
         <button
           onClick={handlePlayPause}
           disabled={isSubmitting}
@@ -96,7 +94,7 @@ export default function SimulationControl() {
         </button>
         <button
           onClick={handleReset}
-          className="px-6 py-3 rounded-lg font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors flex items-center gap-2"
+          className="flex-1 md:flex-none px-6 py-3 rounded-lg font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors flex items-center gap-2 justify-center"
         >
           <RotateCcw className="w-5 h-5" />
           Reset
@@ -107,22 +105,23 @@ export default function SimulationControl() {
         <div className="mb-6 p-4 bg-slate-50 rounded-lg border border-slate-200 animate-in fade-in slide-in-from-top-2 duration-300">
           <h3 className="font-semibold text-slate-900 mb-4">Simulation Parameters</h3>
           <div className="space-y-4">
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-sm font-medium text-slate-700">Simulation Speed</label>
-                <span className="text-sm font-semibold text-slate-900">{params.speed}x</span>
+            {Object.entries(params).map(([key, value]) => (
+              <div key={key}>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium text-slate-700">{key.replace('_', ' ').toUpperCase()}</label>
+                  <span className="text-sm font-semibold text-slate-900">{value}</span>
+                </div>
+                <input
+                  type="range"
+                  min={key === 'speed' ? 0.5 : 1}
+                  max={key === 'speed' ? 5 : 100}
+                  step={key === 'speed' ? 0.5 : 1}
+                  value={value}
+                  onChange={e => handleParamChange(key as keyof SimulationParams, parseFloat(e.target.value))}
+                  className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                />
               </div>
-              <input
-                type="range"
-                min="0.5"
-                max="5"
-                step="0.5"
-                value={params.speed}
-                onChange={e => handleParamChange('speed', parseFloat(e.target.value))}
-                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
-              />
-            </div>
-            {/* Repeat sliders for other params like agent_count, transaction_rate etc */}
+            ))}
           </div>
         </div>
       )}

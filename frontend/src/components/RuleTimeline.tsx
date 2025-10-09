@@ -2,14 +2,13 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { CheckCircle2, XCircle, Clock, TrendingUp } from 'lucide-react';
 
-// TypeScript type matching Supabase response
 export interface RuleChange {
   id: string;
   title?: string;
   description?: string;
   type?: 'enacted' | 'rejected' | 'voting' | 'proposed' | string;
   impact?: 'high' | 'medium' | 'low' | string;
-  timestamp: string; // Keep as string from Supabase
+  timestamp: string;
   votes?: {
     for: number;
     against: number;
@@ -32,7 +31,6 @@ export default function RuleTimeline() {
 
         if (error) throw error;
 
-        // Provide placeholder sample data if no data is returned
         const normalized: RuleChange[] = (data && data.length ? data : [
           {
             id: 'sample1',
@@ -65,7 +63,6 @@ export default function RuleTimeline() {
     fetchRuleChanges();
   }, []);
 
-  // Helper functions
   const getTypeIcon = (type?: string) => {
     switch (type) {
       case 'enacted': return <CheckCircle2 className="w-5 h-5 text-emerald-600" />;
@@ -107,9 +104,17 @@ export default function RuleTimeline() {
     return 'Just now';
   };
 
-  if (loading) return <div className="p-6 text-center">Loading timeline...</div>;
-  if (error) return <div className="p-6 text-center text-red-600">Error: {error}</div>;
-  if (!ruleChanges || ruleChanges.length === 0) return <div className="p-6 text-center">No rule changes found.</div>;
+  if (loading)
+    return (
+      <div className="p-6 space-y-4">
+        {[1, 2, 3].map(i => (
+          <div key={i} className="h-24 bg-slate-200 rounded-lg animate-pulse"></div>
+        ))}
+      </div>
+    );
+
+  if (error) return <div className="p-6 text-center text-red-600">{error}</div>;
+  if (!ruleChanges.length) return <div className="p-6 text-center text-slate-600">No rule changes found.</div>;
 
   return (
     <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
@@ -163,7 +168,7 @@ export default function RuleTimeline() {
                             style={{
                               width: `${(change.votes.for / (change.votes.for + change.votes.against)) * 100}%`,
                             }}
-                          ></div>
+                          />
                         </div>
                       </div>
                     </div>
