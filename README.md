@@ -1,6 +1,6 @@
 # Self-Evolving Multi-Agent Governance in a Decentralized Economy
 
-A decentralized multi-agent system for self-evolving governance, negotiation, and conflict resolution in a digital economy. This project was built for the [Hackathon Name] in 24 hours.
+A decentralized multi-agent system for self-evolving governance, negotiation, and conflict resolution in a digital economy. This project was built for the Fusion in 24 hours.
 
 ## 🎯 Objective
 
