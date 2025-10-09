@@ -49,6 +49,7 @@ export default function MetricsPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Fetch latest metrics
   const fetchMetrics = async () => {
     try {
       setLoading(true);
@@ -90,23 +91,22 @@ export default function MetricsPanel() {
   };
 
   useEffect(() => {
-    fetchMetrics();
+    fetchMetrics(); // initial fetch
 
-    // Set up real-time subscription
+    // Realtime subscription
     const channel = supabase
-      .channel('public:agent_states') // channel name can be anything unique
+      .channel('agent_states_channel')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'agent_states' },
         (payload) => {
-          console.log('Real-time update received:', payload);
-          fetchMetrics(); // Refresh metrics
+          console.log('Realtime update received:', payload);
+          fetchMetrics(); // refresh metrics
         }
       )
       .subscribe();
 
-
-    // Cleanup on unmount
+    // cleanup
     return () => {
       supabase.removeChannel(channel);
     };
