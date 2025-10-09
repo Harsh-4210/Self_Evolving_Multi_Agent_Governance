@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { CheckCircle2, XCircle, Clock, TrendingUp } from 'lucide-react';
 
@@ -19,6 +19,11 @@ export default function RuleTimeline() {
   const [ruleChanges, setRuleChanges] = useState<RuleChange[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentTime, setCurrentTime] = useState(Date.now());
+  const intervalRef = useRef<number | null>(null);
+
+  // Simulation speed (1 = real time)
+  const speed = 1;
 
   useEffect(() => {
     async function fetchRuleChanges() {
@@ -27,7 +32,7 @@ export default function RuleTimeline() {
         const { data, error } = await supabase
           .from('governance_log')
           .select('*')
-          .order('id', { ascending: false });
+          .order('id', { ascending: true });
 
         if (error) throw error;
 
@@ -62,6 +67,21 @@ export default function RuleTimeline() {
 
     fetchRuleChanges();
   }, []);
+
+  // Live ticking timer
+  useEffect(() => {
+    intervalRef.current = window.setInterval(() => {
+      setCurrentTime(prev => prev + 1000 * speed);
+    }, 1000);
+
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, []);
+
+  const visibleRules = ruleChanges.filter(
+    rule => new Date(rule.timestamp).getTime() <= currentTime
+  );
 
   const getTypeIcon = (type?: string) => {
     switch (type) {
@@ -122,7 +142,7 @@ export default function RuleTimeline() {
       <div className="relative">
         <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-slate-200"></div>
         <div className="space-y-6">
-          {ruleChanges.map((change, index) => (
+          {visibleRules.map((change, index) => (
             <div
               key={change.id}
               className="relative pl-14 animate-in fade-in slide-in-from-left-4 duration-500"

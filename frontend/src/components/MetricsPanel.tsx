@@ -49,48 +49,67 @@ export default function MetricsPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const fetchMetrics = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('agent_states')
+        .select('*')
+        .order('id', { ascending: false })
+        .limit(1);
+
+      if (error) throw error;
+
+      const row = data && data.length > 0 ? data[0] : null;
+      setMetrics({
+        total_token_supply: row?.total_token_supply ?? 0,
+        transaction_volume: row?.transaction_volume ?? 0,
+        inflation_rate: row?.inflation_rate ?? 0,
+        active_proposals: row?.active_proposals ?? 0,
+        total_agents: row?.total_agents ?? 0,
+        active_agents: row?.active_agents ?? 0,
+        average_reputation: row?.average_reputation ?? 0,
+        governance_participation: row?.governance_participation ?? 0,
+      });
+    } catch (err: any) {
+      console.error('Supabase fetch error:', err);
+      setError(err.message || 'Unable to fetch governance metrics');
+      setMetrics({
+        total_token_supply: 0,
+        transaction_volume: 0,
+        inflation_rate: 0,
+        active_proposals: 0,
+        total_agents: 0,
+        active_agents: 0,
+        average_reputation: 0,
+        governance_participation: 0,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchMetrics = async () => {
-      try {
-        setLoading(true);
-        const { data, error } = await supabase
-          .from('agent_states')
-          .select('*')
-          .order('id', { ascending: false })
-          .limit(1);
-
-        if (error) throw error;
-
-        const row = data && data.length > 0 ? data[0] : null;
-        setMetrics({
-          total_token_supply: row?.total_token_supply ?? 0,
-          transaction_volume: row?.transaction_volume ?? 0,
-          inflation_rate: row?.inflation_rate ?? 0,
-          active_proposals: row?.active_proposals ?? 0,
-          total_agents: row?.total_agents ?? 0,
-          active_agents: row?.active_agents ?? 0,
-          average_reputation: row?.average_reputation ?? 0,
-          governance_participation: row?.governance_participation ?? 0,
-        });
-      } catch (err: any) {
-        console.error('Supabase fetch error:', err);
-        setError(err.message || 'Unable to fetch governance metrics');
-        setMetrics({
-          total_token_supply: 0,
-          transaction_volume: 0,
-          inflation_rate: 0,
-          active_proposals: 0,
-          total_agents: 0,
-          active_agents: 0,
-          average_reputation: 0,
-          governance_participation: 0,
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchMetrics();
+
+    // Set up real-time subscription
+    const channel = supabase
+      .channel('public:agent_states') // channel name can be anything unique
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'agent_states' },
+        (payload) => {
+          console.log('Real-time update received:', payload);
+          fetchMetrics(); // Refresh metrics
+        }
+      )
+      .subscribe();
+
+
+    // Cleanup on unmount
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const formatNumber = (num?: number) => {

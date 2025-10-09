@@ -11,7 +11,7 @@ export default function NetworkGraph() {
   const [positions, setPositions] = useState<Map<string, { x: number; y: number }>>(new Map());
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Fetch agents
+  // Fetch agents from Supabase
   useEffect(() => {
     async function fetchAgents() {
       try {
@@ -28,7 +28,7 @@ export default function NetworkGraph() {
     fetchAgents();
   }, []);
 
-  // Calculate positions in circle layout
+  // Calculate positions in a circular layout
   useEffect(() => {
     if (!agents.length) return;
     const radius = 180;
@@ -44,7 +44,7 @@ export default function NetworkGraph() {
     setPositions(newPositions);
   }, [agents]);
 
-  // Draw network graph
+  // Draw network graph on canvas
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas || !positions.size) return;
@@ -62,7 +62,7 @@ export default function NetworkGraph() {
         ctx.beginPath();
         ctx.moveTo(pos.x, pos.y);
         ctx.lineTo(targetPos.x, targetPos.y);
-        ctx.strokeStyle = '#cbd5e1'; // light gray
+        ctx.strokeStyle = '#cbd5e1';
         ctx.lineWidth = 1.5;
         ctx.stroke();
       });
@@ -93,6 +93,7 @@ export default function NetworkGraph() {
       ctx.fillStyle = gradient;
       ctx.fill();
 
+      // Highlight selected agent
       if (selectedAgent?.id === agent.id) {
         ctx.beginPath();
         ctx.arc(pos.x, pos.y, size + 4, 0, 2 * Math.PI);
@@ -101,6 +102,7 @@ export default function NetworkGraph() {
         ctx.stroke();
       }
 
+      // White border
       ctx.beginPath();
       ctx.arc(pos.x, pos.y, size, 0, 2 * Math.PI);
       ctx.strokeStyle = '#ffffff';
@@ -109,12 +111,13 @@ export default function NetworkGraph() {
     });
   }, [agents, positions, selectedAgent]);
 
+  // Trigger drawing on changes
   useEffect(() => {
     const id = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(id);
   }, [draw]);
 
-  // Click to select agent
+  // Handle canvas click to select agent
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -137,11 +140,13 @@ export default function NetworkGraph() {
     setSelectedAgent(found);
   };
 
-  if (loading) return (
-    <div className="p-6 bg-white rounded-lg animate-pulse h-96 flex items-center justify-center">
-      Loading Agent Network...
-    </div>
-  );
+  if (loading)
+    return (
+      <div className="p-6 bg-white rounded-lg animate-pulse h-96 flex items-center justify-center">
+        Loading Agent Network...
+      </div>
+    );
+
   if (error) return <div className="p-6 text-center text-red-600">{error}</div>;
 
   return (

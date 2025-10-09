@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { Play, Pause, RotateCcw, Settings, Zap } from 'lucide-react';
 import type { SimulationParams } from '../types/governance';
@@ -7,6 +7,9 @@ export default function SimulationControl() {
   const [isRunning, setIsRunning] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+
+  const intervalRef = useRef<number | null>(null); // Browser-compatible interval ref
 
   const defaultParams: SimulationParams = {
     speed: 1,
@@ -22,9 +25,24 @@ export default function SimulationControl() {
     setParams(prev => ({ ...prev, [key]: value }));
   };
 
+  const startSimulationTimer = () => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    intervalRef.current = window.setInterval(() => {
+      setCurrentTime(prev => prev + 1000 * params.speed);
+    }, 1000);
+  };
+
+  const stopSimulationTimer = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  };
+
   const handlePlayPause = async () => {
     if (isRunning) {
       setIsRunning(false);
+      stopSimulationTimer();
       return;
     }
 
@@ -32,7 +50,9 @@ export default function SimulationControl() {
     try {
       const { error } = await supabase.from('simulation_runs').insert([params]);
       if (error) throw error;
+
       setIsRunning(true);
+      startSimulationTimer();
       alert('Simulation started successfully!');
     } catch (err: any) {
       alert(`Error starting simulation: ${err.message || 'Unknown error'}`);
@@ -43,7 +63,9 @@ export default function SimulationControl() {
 
   const handleReset = () => {
     setIsRunning(false);
+    stopSimulationTimer();
     setParams({ ...defaultParams });
+    setCurrentTime(0);
   };
 
   const scenarios: { name: string; icon: string; description: string }[] = [
@@ -52,6 +74,11 @@ export default function SimulationControl() {
     { name: 'Stable Growth', icon: '📈', description: 'Balanced parameters' },
     { name: 'Stress Test', icon: '💪', description: 'Extreme conditions' },
   ];
+
+  // Cleanup interval on unmount
+  useEffect(() => {
+    return () => stopSimulationTimer();
+  }, []);
 
   return (
     <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
@@ -67,9 +94,7 @@ export default function SimulationControl() {
           <button
             onClick={() => setShowSettings(!showSettings)}
             className={`p-2 rounded-lg transition-colors ${
-              showSettings
-                ? 'bg-blue-100 text-blue-600'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              showSettings ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
             <Settings className="w-5 h-5" />
