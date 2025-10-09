@@ -99,7 +99,7 @@ export default function MetricsPanel() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'agent_states' },
-        (payload) => {
+        (payload: any) => {
           console.log('Realtime update received:', payload);
           fetchMetrics(); // refresh metrics
         }
