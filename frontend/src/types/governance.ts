@@ -2,7 +2,7 @@ export interface Agent {
   id: string;
   name: string;
   reputation: number;
-  votingPower: number;
+  voting_power: number; // camelCase to snake_case
   role: string;
   status: 'active' | 'inactive' | 'suspended';
   connections: string[];
@@ -15,18 +15,18 @@ export interface Proposal {
   description: string;
   proposer: string;
   status: 'active' | 'passed' | 'rejected' | 'pending';
-  votesFor: number;
-  votesAgainst: number;
-  votesAbstain: number;
-  totalVotingPower: number;
-  createdAt: Date;
-  endsAt: Date;
+  votes_for: number; // camelCase to snake_case
+  votes_against: number; // camelCase to snake_case
+  votes_abstain: number; // camelCase to snake_case
+  total_voting_power: number; // camelCase to snake_case
+  created_at: Date; // camelCase to snake_case
+  ends_at: Date; // camelCase to snake_case
   category: 'monetary' | 'governance' | 'technical' | 'social';
 }
 
 export interface RuleChange {
   id: string;
-  proposalId: string;
+  proposal_id: string; // camelCase to snake_case
   title: string;
   description: string;
   type: 'proposed' | 'voting' | 'enacted' | 'rejected';
@@ -41,8 +41,8 @@ export interface Conflict {
   parties: string[];
   status: 'open' | 'negotiating' | 'resolved' | 'escalated';
   severity: 'low' | 'medium' | 'high' | 'critical';
-  createdAt: Date;
-  resolvedAt?: Date;
+  created_at: Date; // camelCase to snake_case
+  resolved_at?: Date; // camelCase to snake_case
   outcome?: string;
   logs: ConflictLog[];
 }
@@ -55,20 +55,20 @@ export interface ConflictLog {
 }
 
 export interface GovernanceMetrics {
-  totalTokenSupply: number;
-  transactionVolume: number;
-  inflationRate: number;
-  activeProposals: number;
-  totalAgents: number;
-  activeAgents: number;
-  averageReputation: number;
-  governanceParticipation: number;
+  total_token_supply: number; // camelCase to snake_case
+  transaction_volume: number; // camelCase to snake_case
+  inflation_rate: number; // camelCase to snake_case
+  active_proposals: number; // camelCase to snake_case
+  total_agents: number; // camelCase to snake_case
+  active_agents: number; // camelCase to snake_case
+  average_reputation: number; // camelCase to snake_case
+  governance_participation: number; // camelCase to snake_case
 }
 
 export interface SimulationParams {
   speed: number;
-  agentCount: number;
-  transactionRate: number;
-  proposalFrequency: number;
-  conflictProbability: number;
+  agent_count: number; // camelCase to snake_case
+  transaction_rate: number; // camelCase to snake_case
+  proposal_frequency: number; // camelCase to snake_case
+  conflict_probability: number; // camelCase to snake_case
 }

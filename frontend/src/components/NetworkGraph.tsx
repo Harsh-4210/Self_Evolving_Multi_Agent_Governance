@@ -1,18 +1,45 @@
 import { useState, useEffect, useRef } from 'react';
-import { type Agent } from '../types/governance';
+import { supabase } from '../supabaseClient';
+import type { Agent } from '../types/governance';
 import { X } from 'lucide-react';
 
-interface NetworkGraphProps {
-  agents: Agent[];
-}
+// This component no longer needs to receive props
+export default function NetworkGraph() {
+  // State for the component's data
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-export default function NetworkGraph({ agents }: NetworkGraphProps) {
+  // State for the component's UI
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
   const [positions, setPositions] = useState<Map<string, { x: number; y: number }>>(new Map());
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // useEffect to fetch data when the component mounts
   useEffect(() => {
+    async function fetchAgents() {
+      try {
+        setLoading(true);
+        // Call the new RPC function you created in Supabase
+        const { data, error } = await supabase.rpc('get_latest_agent_states');
+
+        if (error) throw error;
+        
+        setAgents(data || []);
+      } catch (err: any) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchAgents();
+  }, []);
+
+  // Your original useEffect to calculate agent positions (this is correct)
+  useEffect(() => {
+    if (agents.length === 0) return;
+
     const radius = 180;
     const centerX = 300;
     const centerY = 250;
@@ -28,18 +55,20 @@ export default function NetworkGraph({ agents }: NetworkGraphProps) {
     setPositions(newPositions);
   }, [agents]);
 
+  // Your original useEffect to draw on the canvas (this is correct)
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas || positions.size === 0) return;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    // Draw connections
     agents.forEach(agent => {
       const pos = positions.get(agent.id);
-      if (!pos) return;
+      if (!pos || !agent.connections) return;
 
       agent.connections.forEach(targetId => {
         const targetPos = positions.get(targetId);
@@ -54,13 +83,13 @@ export default function NetworkGraph({ agents }: NetworkGraphProps) {
       });
     });
 
+    // Draw agents
     agents.forEach(agent => {
       const pos = positions.get(agent.id);
       if (!pos) return;
 
       const reputationRatio = agent.reputation / 100;
       const size = 8 + reputationRatio * 8;
-
       const gradient = ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, size);
 
       if (agent.status === 'active') {
@@ -95,6 +124,7 @@ export default function NetworkGraph({ agents }: NetworkGraphProps) {
     });
   }, [agents, positions, selectedAgent]);
 
+  // Your original click handler (this is correct)
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -104,40 +134,38 @@ export default function NetworkGraph({ agents }: NetworkGraphProps) {
     const y = e.clientY - rect.top;
 
     let foundAgent: Agent | null = null;
+    
+    // Iterate backwards so we find the top-most agent if they overlap
+    for (let i = agents.length - 1; i >= 0; i--) {
+        const agent = agents[i];
+        const pos = positions.get(agent.id);
+        if (!pos) continue;
 
-    agents.forEach(agent => {
-      const pos = positions.get(agent.id);
-      if (!pos) return;
+        const reputationRatio = agent.reputation / 100;
+        const size = 8 + reputationRatio * 8;
+        const distance = Math.sqrt((x - pos.x) ** 2 + (y - pos.y) ** 2);
 
-      const reputationRatio = agent.reputation / 100;
-      const size = 8 + reputationRatio * 8;
-      const distance = Math.sqrt((x - pos.x) ** 2 + (y - pos.y) ** 2);
-
-      if (distance <= size) {
-        foundAgent = agent;
-      }
-    });
+        if (distance <= size) {
+            foundAgent = agent;
+            break; // Stop once we find one
+        }
+    }
 
     setSelectedAgent(foundAgent);
   };
+  
+  // Handle loading and error states
+  if (loading) return <div className="p-6 text-center">Loading Agent Network...</div>;
+  if (error) return <div className="p-6 text-center text-red-600">Error: {error}</div>;
 
   return (
     <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-2xl font-bold text-slate-900">Agent Network</h2>
         <div className="flex items-center gap-4 text-xs">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
-            <span className="text-slate-600">Active</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-slate-400"></div>
-            <span className="text-slate-600">Inactive</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-red-500"></div>
-            <span className="text-slate-600">Suspended</span>
-          </div>
+          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-500"></div><span className="text-slate-600">Active</span></div>
+          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-slate-400"></div><span className="text-slate-600">Inactive</span></div>
+          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-500"></div><span className="text-slate-600">Suspended</span></div>
         </div>
       </div>
 
@@ -154,47 +182,28 @@ export default function NetworkGraph({ agents }: NetworkGraphProps) {
           <div className="absolute top-4 right-4 bg-white rounded-lg shadow-lg border border-slate-200 p-4 w-64 animate-in fade-in duration-200">
             <div className="flex items-start justify-between mb-3">
               <h3 className="font-bold text-slate-900 text-lg">{selectedAgent.name}</h3>
-              <button
-                onClick={() => setSelectedAgent(null)}
-                className="text-slate-400 hover:text-slate-600 transition-colors"
-              >
+              <button onClick={() => setSelectedAgent(null)} className="text-slate-400 hover:text-slate-600 transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-slate-600">Role:</span>
-                <span className="font-medium text-slate-900">{selectedAgent.role}</span>
-              </div>
+              <div className="flex justify-between"><span className="text-slate-600">Role:</span><span className="font-medium text-slate-900">{selectedAgent.role}</span></div>
               <div className="flex justify-between">
                 <span className="text-slate-600">Status:</span>
                 <span className={`font-medium capitalize ${
                   selectedAgent.status === 'active' ? 'text-emerald-600' :
                   selectedAgent.status === 'inactive' ? 'text-slate-600' :
                   'text-red-600'
-                }`}>
-                  {selectedAgent.status}
-                </span>
+                }`}>{selectedAgent.status}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-600">Reputation:</span>
-                <span className="font-medium text-slate-900">{selectedAgent.reputation}/100</span>
-              </div>
+              <div className="flex justify-between"><span className="text-slate-600">Reputation:</span><span className="font-medium text-slate-900">{selectedAgent.reputation}/100</span></div>
               <div className="w-full bg-slate-200 rounded-full h-2 mt-1">
-                <div
-                  className="bg-emerald-500 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${selectedAgent.reputation}%` }}
-                ></div>
+                <div className="bg-emerald-500 h-2 rounded-full transition-all duration-300" style={{ width: `${selectedAgent.reputation}%` }}></div>
               </div>
-              <div className="flex justify-between mt-3">
-                <span className="text-slate-600">Voting Power:</span>
-                <span className="font-medium text-slate-900">{selectedAgent.votingPower.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-600">Connections:</span>
-                <span className="font-medium text-slate-900">{selectedAgent.connections.length}</span>
-              </div>
+              {/* MODIFIED: Use snake_case for voting_power */}
+              <div className="flex justify-between mt-3"><span className="text-slate-600">Voting Power:</span><span className="font-medium text-slate-900">{selectedAgent.voting_power.toLocaleString()}</span></div>
+              <div className="flex justify-between"><span className="text-slate-600">Connections:</span><span className="font-medium text-slate-900">{selectedAgent.connections.length}</span></div>
             </div>
           </div>
         )}

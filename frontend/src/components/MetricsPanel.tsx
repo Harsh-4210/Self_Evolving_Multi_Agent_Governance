@@ -1,10 +1,9 @@
+import { useState, useEffect } from 'react';
+import { supabase } from '../supabaseClient';
 import { TrendingUp, TrendingDown, Activity, Users, Vote, Award } from 'lucide-react';
-import { type GovernanceMetrics } from '../types/governance';
+import type { GovernanceMetrics } from '../types/governance';
 
-interface MetricsPanelProps {
-  metrics: GovernanceMetrics;
-}
-
+// Helper component for individual metric cards (your design)
 const MetricCard = ({
   title,
   value,
@@ -17,7 +16,7 @@ const MetricCard = ({
   value: number | string;
   unit?: string;
   trend?: number;
-  icon: any;
+  icon: React.ElementType; // Use React.ElementType for component icons
   color: string;
 }) => (
   <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-all duration-300 hover:scale-[1.02]">
@@ -46,12 +45,56 @@ const MetricCard = ({
   </div>
 );
 
-export default function MetricsPanel({ metrics }: MetricsPanelProps) {
+// Main component that fetches data and then renders the UI
+export default function MetricsPanel() {
+  // State to hold the metrics data, loading status, and any errors
+  const [metrics, setMetrics] = useState<GovernanceMetrics | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // useEffect runs once when the component is first mounted
+  useEffect(() => {
+    async function fetchMetrics() {
+      try {
+        setLoading(true);
+        // Fetch data from the 'governance_metrics' table in Supabase
+        const { data, error } = await supabase
+          .from('governance_metrics') // Make sure this table name is correct
+          .select('*')
+          .single(); // .single() fetches just one row
+
+        if (error) throw error;
+        
+        setMetrics(data);
+      } catch (err: any) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchMetrics();
+  }, []);
+
+  // Helper function to format large numbers
   const formatNumber = (num: number) => {
     if (num >= 1000000) return `${(num / 1000000).toFixed(2)}M`;
     if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
     return num.toFixed(0);
   };
+
+  // Conditional Rendering: Show loading or error states first
+  if (loading) {
+    return <div className="text-center p-8">Loading Governance Metrics...</div>;
+  }
+  if (error) {
+    return <div className="text-center p-8 text-red-600">Error: {error}</div>;
+  }
+  
+  // If data is successfully loaded, render your beautiful UI
+  if (!metrics) {
+      return <div className="text-center p-8">No metrics data found.</div>
+  }
 
   return (
     <div className="space-y-4">
@@ -66,14 +109,14 @@ export default function MetricsPanel({ metrics }: MetricsPanelProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
           title="Total Token Supply"
-          value={formatNumber(metrics.totalTokenSupply)}
+          value={formatNumber(metrics.total_token_supply)}
           icon={Activity}
           color="bg-blue-500"
           trend={2.3}
         />
         <MetricCard
           title="Transaction Volume"
-          value={formatNumber(metrics.transactionVolume)}
+          value={formatNumber(metrics.transaction_volume)}
           unit="24h"
           icon={TrendingUp}
           color="bg-emerald-500"
@@ -81,7 +124,7 @@ export default function MetricsPanel({ metrics }: MetricsPanelProps) {
         />
         <MetricCard
           title="Inflation Rate"
-          value={metrics.inflationRate}
+          value={metrics.inflation_rate}
           unit="%"
           icon={Activity}
           color="bg-orange-500"
@@ -89,7 +132,7 @@ export default function MetricsPanel({ metrics }: MetricsPanelProps) {
         />
         <MetricCard
           title="Active Proposals"
-          value={metrics.activeProposals}
+          value={metrics.active_proposals}
           icon={Vote}
           color="bg-violet-500"
         />
@@ -98,27 +141,27 @@ export default function MetricsPanel({ metrics }: MetricsPanelProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
           title="Total Agents"
-          value={metrics.totalAgents}
+          value={metrics.total_agents}
           icon={Users}
           color="bg-cyan-500"
         />
         <MetricCard
           title="Active Agents"
-          value={metrics.activeAgents}
+          value={metrics.active_agents}
           icon={Users}
           color="bg-teal-500"
           trend={5.2}
         />
         <MetricCard
           title="Avg Reputation"
-          value={metrics.averageReputation.toFixed(1)}
+          value={metrics.average_reputation.toFixed(1)}
           icon={Award}
           color="bg-amber-500"
           trend={3.1}
         />
         <MetricCard
           title="Participation Rate"
-          value={metrics.governanceParticipation.toFixed(1)}
+          value={metrics.governance_participation.toFixed(1)}
           unit="%"
           icon={Vote}
           color="bg-rose-500"

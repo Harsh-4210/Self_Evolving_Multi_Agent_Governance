@@ -1,26 +1,52 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { supabase } from '../supabaseClient';
 import type { Conflict } from '../types/governance';
 import { AlertCircle, CheckCircle2, MessageSquare, ArrowUpCircle } from 'lucide-react';
 
-interface ConflictPanelProps {
-  conflicts: Conflict[];
-}
+// This component no longer needs to receive props
+export default function ConflictPanel() {
+  // State to hold the list of conflicts, loading status, and any errors
+  const [conflicts, setConflicts] = useState<Conflict[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-export default function ConflictPanel({ conflicts }: ConflictPanelProps) {
+  // State to manage which conflict item is expanded in the UI
   const [selectedConflict, setSelectedConflict] = useState<string | null>(null);
+
+  // useEffect runs once when the component is first mounted to fetch data
+  useEffect(() => {
+    async function fetchConflicts() {
+      try {
+        setLoading(true);
+        // Fetch data from the 'conflicts' table in Supabase
+        // Assumes you have a table named 'conflicts'
+        const { data, error } = await supabase
+          .from('conflicts')
+          .select('*')
+          .order('created_at', { ascending: false }); // Show newest conflicts first
+
+        if (error) throw error;
+        
+        setConflicts(data || []);
+      } catch (err: any) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchConflicts();
+  }, []);
+
+  // --- All of your original UI helper functions remain the same ---
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'open':
-        return <AlertCircle className="w-5 h-5 text-amber-600" />;
-      case 'negotiating':
-        return <MessageSquare className="w-5 h-5 text-blue-600" />;
-      case 'resolved':
-        return <CheckCircle2 className="w-5 h-5 text-emerald-600" />;
-      case 'escalated':
-        return <ArrowUpCircle className="w-5 h-5 text-red-600" />;
-      default:
-        return <AlertCircle className="w-5 h-5 text-slate-600" />;
+      case 'open': return <AlertCircle className="w-5 h-5 text-amber-600" />;
+      case 'negotiating': return <MessageSquare className="w-5 h-5 text-blue-600" />;
+      case 'resolved': return <CheckCircle2 className="w-5 h-5 text-emerald-600" />;
+      case 'escalated': return <ArrowUpCircle className="w-5 h-5 text-red-600" />;
+      default: return <AlertCircle className="w-5 h-5 text-slate-600" />;
     }
   };
 
@@ -33,7 +59,7 @@ export default function ConflictPanel({ conflicts }: ConflictPanelProps) {
     };
     return colors[status as keyof typeof colors] || 'bg-slate-50 border-slate-200 text-slate-700';
   };
-
+  
   const getSeverityColor = (severity: string) => {
     const colors = {
       low: 'bg-blue-100 text-blue-700',
@@ -43,8 +69,10 @@ export default function ConflictPanel({ conflicts }: ConflictPanelProps) {
     };
     return colors[severity as keyof typeof colors] || colors.low;
   };
-
-  const formatTimestamp = (date: Date) => {
+  
+  // IMPORTANT: Supabase sends dates as strings, so we must convert them to Date objects
+  const formatTimestamp = (dateString: string | Date) => {
+    const date = new Date(dateString);
     const now = new Date();
     const diff = now.getTime() - date.getTime();
     const minutes = Math.floor(diff / (1000 * 60));
@@ -57,6 +85,11 @@ export default function ConflictPanel({ conflicts }: ConflictPanelProps) {
     return 'Just now';
   };
 
+  // --- Conditional Rendering for Loading and Error States ---
+  if (loading) return <div className="p-6 text-center">Loading conflicts...</div>;
+  if (error) return <div className="p-6 text-center text-red-600">Error: {error}</div>;
+
+  // --- Render your original UI once data is loaded ---
   return (
     <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
       <div className="flex items-center justify-between mb-6">
@@ -109,16 +142,16 @@ export default function ConflictPanel({ conflicts }: ConflictPanelProps) {
                     <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium capitalize ${getStatusColor(conflict.status)}`}>
                       {conflict.status}
                     </span>
-                    <p className="text-xs text-slate-500 mt-1">{formatTimestamp(conflict.createdAt)}</p>
+                    <p className="text-xs text-slate-500 mt-1">{formatTimestamp(conflict.created_at)}</p>
                   </div>
                 </div>
 
                 {conflict.outcome && (
                   <div className="mt-3 p-3 bg-white rounded-lg border border-emerald-200">
                     <p className="text-sm text-emerald-700 font-medium">Outcome: {conflict.outcome}</p>
-                    {conflict.resolvedAt && (
+                    {conflict.resolved_at && (
                       <p className="text-xs text-slate-500 mt-1">
-                        Resolved {formatTimestamp(conflict.resolvedAt)}
+                        Resolved {formatTimestamp(conflict.resolved_at)}
                       </p>
                     )}
                   </div>

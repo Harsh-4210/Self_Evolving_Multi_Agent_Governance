@@ -1,36 +1,13 @@
-import { useState, useEffect } from 'react';
 import MetricsPanel from './components/MetricsPanel';
 import NetworkGraph from './components/NetworkGraph';
 import RuleTimeline from './components/RuleTimeline';
 import VotingInterface from './components/VotingInterface';
 import ConflictPanel from './components/ConflictPanel';
 import SimulationControl from './components/SimulationControl';
-import { mockAgents, mockProposals, mockRuleChanges, mockConflicts, mockMetrics } from './data/mockData';
-import { type GovernanceMetrics, type SimulationParams } from './types/governance';
 import { Network } from 'lucide-react';
 
 function App() {
-  const [metrics, setMetrics] = useState<GovernanceMetrics>(mockMetrics);
-  const [, setSimulationParams] = useState<SimulationParams>({
-    speed: 1,
-    agentCount: 10,
-    transactionRate: 100,
-    proposalFrequency: 5,
-    conflictProbability: 15,
-  });
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setMetrics(prev => ({
-        ...prev,
-        transactionVolume: prev.transactionVolume + Math.floor(Math.random() * 100),
-        governanceParticipation: Math.min(100, prev.governanceParticipation + (Math.random() - 0.5) * 2),
-        averageReputation: Math.max(0, Math.min(100, prev.averageReputation + (Math.random() - 0.5))),
-      }));
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, []);
+  // No more useState or useEffect for data here!
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100">
@@ -48,7 +25,7 @@ function App() {
             </div>
             <div className="flex items-center gap-4">
               <div className="px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-lg font-medium shadow-sm">
-                Demo Mode
+                Live Data Mode
               </div>
             </div>
           </div>
@@ -57,19 +34,20 @@ function App() {
 
       <main className="max-w-[1920px] mx-auto px-6 py-6">
         <div className="space-y-6">
-          <MetricsPanel metrics={metrics} />
+          {/* Each component now fetches its own data, so no props are passed down */}
+          <MetricsPanel />
 
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-            <NetworkGraph agents={mockAgents} />
-            <SimulationControl onParamsChange={setSimulationParams} />
+            <NetworkGraph />
+            <SimulationControl />
           </div>
 
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-            <RuleTimeline ruleChanges={mockRuleChanges} />
-            <VotingInterface proposals={mockProposals} />
+            <RuleTimeline />
+            <VotingInterface />
           </div>
 
-          <ConflictPanel conflicts={mockConflicts} />
+          <ConflictPanel />
         </div>
       </main>
 
