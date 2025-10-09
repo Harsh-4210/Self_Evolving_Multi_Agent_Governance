@@ -1,0 +1,22 @@
+# Python runtime files
+__pycache__/
+*.pyc
+*build/
+*dist/
+*.egg-info/
+
+# Virtual environment
+venv/
+.env
+
+# Project specific data/outputs
+/data/models/
+/data/logs/*.log
+
+# IDE / Editor folders
+.idea/
+.vscode/
+
+# Model files
+*.pt
+*.h5
