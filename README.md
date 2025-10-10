@@ -45,7 +45,7 @@ pip install -r requirements.txt
 1.  **Clone the repository:**
     ```bash
     git clone https://github.com/Harsh-4210/Self_Evolving_Multi_Agent_Governance.git
-    cd multi-agent-governance-hackathon
+    cd Self-Evolving-Multi-Agent-Governance-Hackathon
     ```
 
 2.  **Install dependencies:**
