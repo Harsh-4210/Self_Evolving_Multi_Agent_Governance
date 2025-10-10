@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { supabase } from '../supabaseClient';
+import { api } from '../api/apiClient';
 import type { Agent } from '../types/governance';
 import { X } from 'lucide-react';
 
@@ -11,13 +11,12 @@ export default function NetworkGraph() {
   const [positions, setPositions] = useState<Map<string, { x: number; y: number }>>(new Map());
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Fetch agents from Supabase
+  // Fetch agents from API
   useEffect(() => {
     async function fetchAgents() {
       try {
         setLoading(true);
-        const { data, error } = await supabase.from('transactions').select('*').limit(5);
-        if (error) throw error;
+        const data = await api.getAgents();
         setAgents(data || []);
       } catch (err: any) {
         setError(err.message || 'Error fetching agents');
@@ -25,7 +24,12 @@ export default function NetworkGraph() {
         setLoading(false);
       }
     }
+    
     fetchAgents();
+    
+    // Poll for updates every 5 seconds
+    const interval = setInterval(fetchAgents, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   // Calculate positions in a circular layout

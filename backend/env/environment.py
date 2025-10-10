@@ -1,11 +1,11 @@
-# backend/env/environment.py
-
 import numpy as np
 from gymnasium import spaces
 from ray.rllib.env import MultiAgentEnv
 from backend.utils.governance import GovernanceModule
 from backend.env.utils import get_initial_agent_state, get_observation_space, get_action_space
-from backend.db_connector import SupabaseConnector
+from backend.db_connector import LocalDBConnector  # updated here
+
+db_connector = LocalDBConnector()  # use LocalDBConnector instead of SupabaseConnector
 
 
 class DecentralizedEconomyEnv(MultiAgentEnv):
@@ -14,7 +14,7 @@ class DecentralizedEconomyEnv(MultiAgentEnv):
     Features:
     - Buy/Sell/Propose/Vote actions
     - Reputation and economic reward system
-    - Supabase logging for agent states, transactions, governance, and simulation runs
+    - Local PostgreSQL logging for agent states, transactions, governance, and simulation runs
     - META-LEARNING: Randomized parameters for adaptable agent training
     """
 
@@ -48,8 +48,8 @@ class DecentralizedEconomyEnv(MultiAgentEnv):
         self.steps = 0
         self.agent_states = {}
 
-        # Supabase logging
-        self.db = SupabaseConnector(batch_interval=5)
+        # Local PostgreSQL logging via LocalDBConnector
+        self.db = db_connector  
         self.db.log_simulation_run(agent_count=self._num_agents)
 
     # ---------- Reset ----------
@@ -58,7 +58,6 @@ class DecentralizedEconomyEnv(MultiAgentEnv):
         self.governance.end_voting_period()
 
         # --- META-LEARNING ADDITION 2: Sample a new task for the episode ---
-        # Instead of fixed values, sample from the configured ranges.
         self.market_price = np.random.uniform(*self.price_range)
         self.tax_rate = np.random.uniform(*self.tax_range)
         self.volatility_factor = np.random.uniform(*self.volatility_range)
@@ -81,7 +80,6 @@ class DecentralizedEconomyEnv(MultiAgentEnv):
         self.steps += 1
         obs, rewards, terminations, truncations, infos = {}, {}, {}, {}, {}
 
-        # Save previous states for reward calculation
         states_before = {agent: state.copy() for agent, state in self.agent_states.items()}
         net_worths_before = {
             agent: state['cash'] + state['assets'] * self.market_price for agent, state in states_before.items()
@@ -97,9 +95,7 @@ class DecentralizedEconomyEnv(MultiAgentEnv):
                     state["cash"] -= self.market_price
                     state["assets"] += 1
                     state["total_trades"] += 1
-                    # --- META-LEARNING ADDITION 3: Use sampled volatility ---
                     self.market_price *= self.volatility_factor
-                    # ----------------------------------------------------
                     state["reputation"] += 0.01
                     self.db.log_transaction(agent, "buy", self.market_price)
             elif action == 2:  # Sell
@@ -108,9 +104,7 @@ class DecentralizedEconomyEnv(MultiAgentEnv):
                     state["cash"] += earnings
                     state["assets"] -= 1
                     state["total_trades"] += 1
-                    # --- META-LEARNING ADDITION 3: Use sampled volatility ---
-                    self.market_price /= self.volatility_factor # Use inverse for selling
-                    # ----------------------------------------------------
+                    self.market_price /= self.volatility_factor  # inverse for sell
                     state["reputation"] += 0.01
                     self.db.log_transaction(agent, "sell", self.market_price)
             elif action == 3:  # Propose Rule
@@ -161,7 +155,6 @@ class DecentralizedEconomyEnv(MultiAgentEnv):
             infos[agent] = {}
             terminations[agent] = done
             truncations[agent] = done
-            # Log updated agent state
             self.db.log_agent_state(agent, self.agent_states[agent])
 
         terminations["__all__"] = done

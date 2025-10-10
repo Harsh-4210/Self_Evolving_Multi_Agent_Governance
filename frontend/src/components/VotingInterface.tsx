@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../supabaseClient';
+import { api } from '../api/apiClient';
 import { ThumbsUp, ThumbsDown, MinusCircle } from 'lucide-react';
 
 // Extended Proposal type with timestamp for simulation
@@ -28,15 +28,10 @@ export default function VotingInterface() {
   const fetchProposals = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('governance_log')
-        .select('*')
-        .order('id', { ascending: true });
-
-      if (error) throw error;
+      const data = await api.getProposals();
 
       // Normalize data and add timestamp if missing
-      const normalized: Proposal[] = (data || []).map(p => ({
+      const normalized: Proposal[] = (data || []).map((p: any) => ({
         ...p,
         votes_for: Number(p.votes_for || 0),
         votes_against: Number(p.votes_against || 0),
@@ -56,6 +51,10 @@ export default function VotingInterface() {
 
   useEffect(() => {
     fetchProposals();
+    
+    // Poll for updates every 5 seconds
+    const pollInterval = setInterval(fetchProposals, 5000);
+    return () => clearInterval(pollInterval);
   }, []);
 
   // Increment currentTime every second to reveal proposals progressively
@@ -67,22 +66,16 @@ export default function VotingInterface() {
   const handleVote = async (proposalId: string, voteType: 'for' | 'against' | 'abstain') => {
     setIsVoting(proposalId);
     try {
-      const voteColumn = `votes_${voteType}`;
-      const { error } = await supabase.rpc('increment_vote', {
-        proposal_id_to_update: proposalId,
-        vote_column: voteColumn,
-      });
-
-      if (error) throw error;
+      const result = await api.castVote(proposalId, voteType);
 
       setProposals(prev =>
         prev.map(p =>
           p.id === proposalId
             ? {
                 ...p,
-                votes_for: voteType === 'for' ? p.votes_for! + 1 : p.votes_for,
-                votes_against: voteType === 'against' ? p.votes_against! + 1 : p.votes_against,
-                votes_abstain: voteType === 'abstain' ? p.votes_abstain! + 1 : p.votes_abstain,
+                votes_for: result.votes_for || p.votes_for,
+                votes_against: result.votes_against || p.votes_against,
+                votes_abstain: result.votes_abstain || p.votes_abstain,
               }
             : p
         )

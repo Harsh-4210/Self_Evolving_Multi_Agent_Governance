@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../supabaseClient';
+import { api } from '../api/apiClient';
 import { AlertCircle, CheckCircle2, MessageSquare, ArrowUpCircle } from 'lucide-react';
 
 interface Log {
@@ -54,12 +54,7 @@ export default function ConflictPanel() {
     const fetchConflicts = async () => {
       try {
         setLoading(true);
-        const { data, error } = await supabase
-          .from('transactions')
-          .select('*')
-          .order('id', { ascending: false });
-
-        if (error) throw error;
+        const data = await api.getConflicts();
 
         const normalized = (data || []).map((item: any) => ({
           ...item,
@@ -71,7 +66,7 @@ export default function ConflictPanel() {
 
         setConflicts(normalized.length ? normalized : placeholderData);
       } catch (err: any) {
-        console.error('Supabase fetch error:', err);
+        console.error('API fetch error:', err);
         setError(err.message || 'Unable to fetch conflicts');
         setConflicts(placeholderData);
       } finally {
@@ -80,6 +75,10 @@ export default function ConflictPanel() {
     };
 
     fetchConflicts();
+    
+    // Poll for updates every 5 seconds
+    const interval = setInterval(fetchConflicts, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   const getStatusIcon = (status: string) => {

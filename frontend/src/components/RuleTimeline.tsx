@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { supabase } from '../supabaseClient';
+import { api } from '../api/apiClient';
 import { CheckCircle2, XCircle, Clock, TrendingUp } from 'lucide-react';
 
 export interface RuleChange {
@@ -29,12 +29,7 @@ export default function RuleTimeline() {
     async function fetchRuleChanges() {
       try {
         setLoading(true);
-        const { data, error } = await supabase
-          .from('governance_log')
-          .select('*')
-          .order('id', { ascending: true });
-
-        if (error) throw error;
+        const data = await api.getRules();
 
         const normalized: RuleChange[] = (data && data.length ? data : [
           {
@@ -66,6 +61,13 @@ export default function RuleTimeline() {
     }
 
     fetchRuleChanges();
+    
+    // Poll for updates every 5 seconds
+    const pollInterval = setInterval(fetchRuleChanges, 5000);
+    
+    return () => {
+      clearInterval(pollInterval);
+    };
   }, []);
 
   // Live ticking timer

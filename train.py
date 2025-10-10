@@ -10,6 +10,7 @@ def main():
     """Final optimized training script for DecentralizedEconomy POC."""
 
     # ---------- 1. Register environment ----------
+    load_dotenv()
     env_name = "DecentralizedEconomy"
     register_env(env_name, lambda config: DecentralizedEconomyEnv(config))
 
@@ -85,7 +86,6 @@ def main():
 
 
 if __name__ == "__main__":
-    load_dotenv()
     if ray.is_initialized():
         ray.shutdown()
     ray.init(ignore_reinit_error=True)

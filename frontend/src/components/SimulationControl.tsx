@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { supabase } from '../supabaseClient';
+import { api } from '../api/apiClient';
 import { Play, Pause, RotateCcw, Settings, Zap } from 'lucide-react';
 import type { SimulationParams } from '../types/governance';
 
@@ -9,7 +9,7 @@ export default function SimulationControl() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
 
-  const intervalRef = useRef<number | null>(null); // Browser-compatible interval ref
+  const intervalRef = useRef<number | null>(null);
 
   const defaultParams: SimulationParams = {
     speed: 1,
@@ -48,8 +48,7 @@ export default function SimulationControl() {
 
     setIsSubmitting(true);
     try {
-      const { error } = await supabase.from('simulation_runs').insert([params]);
-      if (error) throw error;
+      await api.startSimulation(params);
 
       setIsRunning(true);
       startSimulationTimer();
@@ -110,12 +109,17 @@ export default function SimulationControl() {
             isRunning ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-emerald-500 hover:bg-emerald-600 text-white'
           }`}
         >
-          {isSubmitting
-            ? 'Starting...'
-            : isRunning
-            ? (<><Pause className="w-5 h-5" /> Pause Simulation</>)
-            : (<><Play className="w-5 h-5" /> Start Simulation</>)
-          }
+          {isSubmitting ? (
+            'Starting...'
+          ) : isRunning ? (
+            <>
+              <Pause className="w-5 h-5" /> Pause Simulation
+            </>
+          ) : (
+            <>
+              <Play className="w-5 h-5" /> Start Simulation
+            </>
+          )}
         </button>
         <button
           onClick={handleReset}
@@ -133,7 +137,9 @@ export default function SimulationControl() {
             {Object.entries(params).map(([key, value]) => (
               <div key={key}>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="text-sm font-medium text-slate-700">{key.replace('_', ' ').toUpperCase()}</label>
+                  <label className="text-sm font-medium text-slate-700">
+                    {key.replace(/_/g, ' ').toUpperCase()}
+                  </label>
                   <span className="text-sm font-semibold text-slate-900">{value}</span>
                 </div>
                 <input
