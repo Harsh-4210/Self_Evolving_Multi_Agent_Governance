@@ -1,73 +1,71 @@
-# Self-Evolving Multi-Agent Governance in a Decentralized Economy
+# 🧠 Self-Evolving Multi-Agent Governance in a Decentralized Economy
 
-A decentralized multi-agent system for self-evolving governance, negotiation, and conflict resolution in a digital economy. This project was built for the Fusion in 24 hours.
+[![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/)
+[![Reinforcement Learning](https://img.shields.io/badge/RL-PPO%20%7C%20SAC-orange.svg)]()
+[![Framework](https://img.shields.io/badge/Framework-Ray%20RLlib%20%7C%20PettingZoo-green.svg)]()
+[![Meta-Learning](https://img.shields.io/badge/Meta--Learning-learn2learn-purple.svg)]()
+[![Dashboard](https://img.shields.io/badge/Dashboard-Dash%20%7C%20Plotly-blueviolet.svg)]()
+[![License](https://img.shields.io/badge/License-MIT-lightgrey.svg)]()
+
+> A **decentralized multi-agent system** enabling *autonomous governance, negotiation, and conflict resolution* within a digital economy.  
+> Developed in just **24 hours** during the **Fusion Hackathon 2025**, this project demonstrates **self-organizing governance** powered by reinforcement learning and adaptive intelligence.
+
+---
 
 ## 🎯 Objective
 
-To build a decentralized multi-agent system where reinforcement learning (RL) agents autonomously create, enforce, and adapt governance rules (e.g., token policies, trading rules). The system showcases emergent behaviors, including automated negotiation and trust-based reputation systems, without central control.
+To design and implement a **self-evolving governance framework** where **reinforcement learning (RL) agents** autonomously **propose, enforce, and evolve** governance rules — such as token policies, transaction regulations, and market mechanisms.  
 
+The system exhibits **emergent economic behaviors**, including automated negotiation, consensus formation, and reputation-based trust — all without centralized control.
 
+---
 
 ## ✨ Key Features
 
-- **Dynamic Governance:** Agents propose and vote on new rules using Reputation-Weighted Quadratic Voting.
-- **Autonomous Conflict Resolution:** Game-theoretic negotiation protocols (Nash bargaining) to resolve disputes automatically.
-- **Adaptive Agents:** Meta-learning allows agents to rapidly adapt policies to new rules and market shocks.
-- **Live Visualization:** A real-time dashboard built with Dash/Plotly to monitor the economy, agent reputations, and governance evolution.
+- 🗳️ **Dynamic Governance System**  
+  Agents propose and modify rules using **Reputation-Weighted Quadratic Voting**, ensuring fairness and proportional influence.
+
+- 🤝 **Autonomous Conflict Resolution**  
+  Disputes are resolved via **game-theoretic negotiation protocols** (Nash Bargaining), fostering stability and cooperation.
+
+- 🧬 **Adaptive & Meta-Learning Agents**  
+  Agents continuously learn through **meta-reinforcement learning (learn2learn)**, adapting to evolving policies and market conditions.
+
+- 📊 **Real-Time Visualization Dashboard**  
+  A live **Dash/Plotly dashboard** provides visibility into governance changes, market metrics, agent reputations, and conflict resolutions.
+
+---
 
 ## 🛠️ Tech Stack
 
-- **Multi-Agent RL:** Ray RLlib, PettingZoo
-- **RL Algorithms:** PPO, SAC
-- **Governance & Communication:** Custom Modules, gRPC/Redis
-- **Meta-Learning:** learn2learn
-- **Data & Visualization:** PostgreSQL, Dash/Plotly
-- **Deployment:** Docker, Kubernetes
-  
- ## ⚙️ Setup & Prerequisites
+| Layer | Technologies |
+|-------|---------------|
+| **Multi-Agent Simulation** | Ray RLlib, PettingZoo |
+| **Reinforcement Learning** | PPO, SAC |
+| **Governance & Communication** | Custom Python Modules, gRPC, Redis |
+| **Meta-Learning** | learn2learn |
+| **Data & Visualization** | PostgreSQL, Dash, Plotly |
+| **Deployment** | Docker, Kubernetes |
 
-This project requires **Python 3.10**.
+---
 
-To create the correct environment, run the following commands:
+## ⚙️ Setup & Installation
+
+### **Prerequisites**
+- Python **3.10+**
+- Docker (optional, for containerized deployment)
+
+### **Steps**
 ```bash
-# Create a virtual environment using Python 3.10
+# Clone the repository
+git clone https://github.com/Harsh-4210/Self_Evolving_Multi_Agent_Governance.git
+cd Self-Evolving-Multi-Agent-Governance-Hackathon
+
+# Create a virtual environment
 py -3.10 -m venv venv
 
-# Activate it
+# Activate the environment
 .\venv\Scripts\Activate.ps1
 
-# Install the required packages
+# Install dependencies
 pip install -r requirements.txt
-```
-
-## 🚀 How to Run
-
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/Harsh-4210/Self_Evolving_Multi_Agent_Governance.git
-    cd Self-Evolving-Multi-Agent-Governance-Hackathon
-    ```
-
-2.  **Install dependencies:**
-    ```bash
-    pip install -r requirements.txt
-    ```
-
-3.  **Run the simulation:**
-    ```bash
-    python src/main.py --config configs/dynamic_gov_config.yaml
-    ```
-
-4.  **Launch the dashboard:**
-    ```bash
-    python dashboard/app.py
-    ```
-    Visit `http://127.0.0.1:8050` in your browser.
-
-## 📊 Performance Metrics
-
-We demonstrate superior performance over a static-rule baseline using:
-- **Adaptability:** Faster recovery from market shocks.
-- **Fairness:** Lower Gini coefficient for resource distribution.
-- **Stability:** Reduced token price volatility.
-- **Conflict Resolution Rate:** High percentage of autonomously resolved disputes.
