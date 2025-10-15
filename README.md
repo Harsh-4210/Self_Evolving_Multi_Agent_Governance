@@ -37,7 +37,7 @@ The system exhibits **emergent economic behaviors**, including automated negotia
 
 ## 🏗️ Architecture Diagram
 
-![Architecture Diagram]<img width="1830" height="870" alt="image" src="https://github.com/user-attachments/assets/658f8c8b-e3b6-4d25-b962-c7962afea74d" />
+<img width="1830" height="870" alt="image" src="https://github.com/user-attachments/assets/658f8c8b-e3b6-4d25-b962-c7962afea74d" />
 
 *This diagram illustrates the interactions between RL agents, the decentralized environment, governance modules, and logging/visualization components.*
 
@@ -57,7 +57,7 @@ The system exhibits **emergent economic behaviors**, including automated negotia
 
 ## 👥 Contributors
 
-- [Yash Surname](https://www.linkedin.com/in/yash-doke/) | [GitHub](https://github.com/yashdoke7)
+- [Yash Doke](https://www.linkedin.com/in/yash-doke/) | [GitHub](https://github.com/yashdoke7)
 - [Viraj Jadhao](https://www.linkedin.com/in/viraj-jadhao-0771b830b/) | [GitHub](https://github.com/Viraj281105)
 - [Harsh Jain](https://www.linkedin.com/in/harsh-jain-853b31341/) | [GitHub](https://github.com/Harsh-4210)
 - [Bhumi Sirvi](https://www.linkedin.com/in/bhumi-sirvi-83a505366/) | [GitHub](https://github.com/bhumi27-lab)
@@ -79,9 +79,10 @@ cd Self_Evolving_Multi_Agent_Governance
 
 # Create and activate virtual environment
 python3 -m venv venv
-source venv/bin/activate  # Linux/macOS
-# or
-.\venv\Scripts\Activate.ps1  # Windows PowerShell
+# Linux/macOS
+source venv/bin/activate  
+# Windows PowerShell
+.\venv\Scripts\Activate.ps1  
 
 # Install dependencies
 pip install -r requirements.txt
